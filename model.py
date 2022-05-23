@@ -16,6 +16,7 @@ def readInputFile(filename):
     
     # Load all data from excel sheets
     
+    TimeData = pandas.read_excel(filename, sheet_name='Time', index_col=0) #time data including time step
     LoadData = pandas.read_excel(filename, sheet_name= 'Load', index_col=0) #data of load entire neighbourhood
     TransformerData = pandas.read_excel(filename, sheet_name= 'Transformer', index_col=0) #rated power transformer
     PVProduction = pandas.read_excel(filename, sheet_name='PVProduction', index_col=0) # omgerekende irradiation
@@ -23,31 +24,28 @@ def readInputFile(filename):
     EVDemand= pandas.read_excel(filename, sheet_name = 'EVDemand', index_col=0) #EV charging data
 
     # Return directory 
-    return {'PVProduction':PVProduction, 'StorageData':StorageData,
+    return {'PVProduction':PVProduction, 'StorageData':StorageData, 'TimeData':TimeData,
             'LoadData':LoadData, 'TransformerData':TransformerData, 'EVDemand':EVDemand}
-
-filename = 'variables_BAP.xlsx'
-data = readInputFile(filename)
-print(data)
 
 def optimizationModel(inputData, modelType):   
     
     # Unpack the data from the dictionary
-LoadData = inputData['LoadData']
+    LoadData = inputData['LoadData']
     TransformerData = inputData['TransformerData']
     PVProduction = inputData['PVProduction']
     StorageData = inputData['StorageData']
     EVDemand = inputData['EVDemand']
+    TimeData = inputData['TimeData']
 #-------------------------------------------------------------------
     # Define the Model
     model = ConcreteModel()
 
 #------------------------------------------------------------------
     #Define Sets
-    model.T = Set(ordered=True, initialize=LoadData.index)  # Set for time steps
+    model.T = Set(ordered=True, initialize=TimeData.index)  # Set for time steps
     model.B = Set(ordered=True, initialize=StorageData.index)  # Set for battery
     model.L = Set(ordered=True, initialize=LoadData.index)  # Set for loads
-    model.P = Set(ordered=True, initialize=PVData.index)  # Set for PV
+    model.P = Set(ordered=True, initialize=PVProduction.index)  # Set for PV
     model.E = Set(ordered=True, initialize=EVDemand.index)  # Set for EV load
     model.G = Set(ordered=True, initialize=TransformerData.index) # Set for (grid) transformer
 
@@ -65,6 +63,8 @@ LoadData = inputData['LoadData']
     # transformer
     model.Pmax = Param(model.G, within=NonNegativeReals, mutable=True)
     # moet hier nog -P bij voor energie terugvoeren?
+    # timestep
+    model.timestep = Param(model.T, within=NonNegativeReals, mutable=True)
     # EV... to do
 
 #----------------------------------------------------------------
@@ -85,6 +85,9 @@ LoadData = inputData['LoadData']
 
     for g in model.G: # transformer parameters
         model.Pmax[g] = TransformerData.loc[g,'Pmax']
+        
+    for t in model.T:
+        model.timestep[t] = TimeData.loc[t, 'timestep']
 
     # to do: for e in model.E: (EV)
 
@@ -95,13 +98,52 @@ LoadData = inputData['LoadData']
     model.Pch = Var(model.B, model.T, within=NonNegativeReals)
     model.Pdis = Var(model.B, model.T, within=NonNegativeReals)
     model.u_bess = Var(model.B, model.T, within=Binary)
-    # Transformer
-    model.Gmax = Var(model.G, model.T, within=NonNegativeReals)
+    model.u_idle = Var(model.B, model.T, within=Binary)
     # to do: EV toevoegen
 
 #---------------------------------------------------------
     # Define Constraints
+    
+    def ObjectiveFcn(model):
+        return sum(sum(model.consumption[l,t] * model.timestep[t] for l in model.L) - sum(model.PV[p,t] * model.timestep[t] for p in model.P) - 
+                   sum(model.Pdis[b,t]/model.BESS_Eff[b] for b in model.B) + sum(model.Pch[b,t]/model.BESS_Eff[b] for b in model.B) for t in model.T)
+    
+    def SOE(model, b, t):
+        if model.T == 1:
+            return model.SOE[b,t] == model.BESS_SOEini[b] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
+        if model.T > 1:
+            return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
+                  
+    def BESS_SOE_max(model, b, t):
+        return model.SOE[b,t] <= model.ESS_SOEmax[b]
+    
+    # BESS_SOE_min is not needed, since model.SOE specifies NonNegativeReals
+    
+    def BESS_Charging(model, b, t):
+       return model.Pch[b,t] <= model.BESS_Pmax[b] * model.u_bess[b,t]
 
-return model
+    def BESS_Discharging(model, b, t): 
+       return model.Pdis[b, t] <= model.BESS_Pmax[b] * (1-model.u_bess[b, t])
 
+    def BESS_idle(model, b, t):
+        return model.u_bess[b,t] + model.u_idle[b,t] < 1
+    
+#----------------------------------------------------------
+    # Add Constraints to the model
+    
+    model.Obj = Objective(rule=ObjectiveFcn)
+    model.ConSOE = Constraint(model.B, model.T, rule=SOE)
+    model.ConSOEmax = Constraint(model.B, model.T, rule=BESS_SOE_max)
+    model.ConBESSCharging = Constraint(model.B, model.T, rule=BESS_Charging)
+    model.ConBESSDischarging = Constraint(model.B, model.T, rule=BESS_Disharging)
+    model.ConBESSidle = Constraint(model.B, model.T, rule=BESS_idle)
+    
+    return model
 
+filename = 'variables_BAP.xlsx'
+data = readInputFile(filename)
+
+model = optimizationModel(data, 'test')
+opt=SolverFactory('gurobi')
+opt.options["MIPGap"] = 0.0
+results=opt.solve(model)
