@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import seaborn as sns
 import numpy as np
+import exportDecisionVariables
+
 
 def readInputFile(filename):
     
@@ -94,7 +96,8 @@ def optimizationModel(inputData, modelType):
 
     # to do: for e in model.E: (EV)
 
-#--------------------------------------------------------
+    # Probably (definitely) works until here, tested values correspond to input
+#------------------------------------------------------------------------------
     # Define the Decision Variables
     #BESS
     model.SOE = Var(model.B, model.T, within=NonNegativeReals)
@@ -152,10 +155,22 @@ results=opt.solve(model1)
 
 # plot to test
 for t in model1.T:
-    print(t)
-    print(model1.ConSOEmax())
-plt.ylim(1,1000)
-plt.xlim(1,10)
-plt.plot(model1.Obj())
+    print(model1.Consumption[t]())
+    
+for t in model1.T:
+    print(model1.PV[t]())
+    
+for b in model1.B:
+    print(model1.BESS_SOEini[b]())
+    
+for x in model1.X:
+    print(model1.timestep[x]())
+    
+exportDecisionVariables.exportDecisionVariables(model1, 'DecisionVariablesTest1.xlsx')
+    
+#plt.plot(model1.Consumption[t]())
+#plt.ylim(1,1000)
+#plt.xlim(1,10)
+
 
 #plt.plot(pandas.read_excel(filename, sheet_name='Load', index_col=0))
