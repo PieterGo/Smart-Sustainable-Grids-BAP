@@ -11,8 +11,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import seaborn as sns
 import numpy as np
-import exportDecisionVariables
-
 
 def readInputFile(filename):
     
@@ -82,7 +80,7 @@ def optimizationModel(inputData, modelType):
         model.BESS_Eff[b] = StorageData.loc[b,'Eff']
 
     for t in model.T: # pv parameters
-            model.PV[t] = PVProduction.loc[t,'PVProduction']
+        model.PV[t] = PVProduction.loc[t,'PVProduction']
 
     for g in model.G: # transformer parameters
         model.Pmax[g] = TransformerData.loc[g,'Pmax']
@@ -109,17 +107,17 @@ def optimizationModel(inputData, modelType):
 
 #---------------------------------------------------------
     # Define Constraints
-    
+      
     def ObjectiveFcn(model):
-        return sum(model.Consumption[t] * model.timestep[x] - model.PV[t] * model.timestep[x] - 
-                   model.Pdis[b,t]/model.BESS_Eff[b] + model.Pch[b,t]/model.BESS_Eff[b] for t in model.T)
-    
+        return model.timestep[x] * sum(model.Consumption[t] + model.Pch[b,t] \
+                   - model.PV[t] - model.Pdis[b,t] for t in model.T)
+
     def SOE(model, b, t):
-        if model.T == 1:
+        if model.T.ord(t) == 1:
             return model.SOE[b,t] == model.BESS_SOEini[b] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
-        if model.T > 1:
+        if model.T.ord(t) > 1:
             return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
-                  
+                 
     def BESS_SOE_max(model, b, t):
         return model.SOE[b,t] <= model.BESS_SOEmax[b]
     
@@ -134,11 +132,12 @@ def optimizationModel(inputData, modelType):
     def BESS_idle(model, b, t):
         return model.u_bess[b,t] + model.u_idle[b,t] <= 1
     
+    
 #----------------------------------------------------------
     # Add Constraints to the model
     
     model.Obj = Objective(rule=ObjectiveFcn)
-    #model.ConSOE = Constraint(model.B, model.T, rule=SOE)
+    model.ConSOE = Constraint(model.B, model.T, rule=SOE)
     model.ConSOEmax = Constraint(model.B, model.T, rule=BESS_SOE_max)
     model.ConBESSCharging = Constraint(model.B, model.T, rule=BESS_Charging)
     model.ConBESSDischarging = Constraint(model.B, model.T, rule=BESS_Discharging)
@@ -148,29 +147,35 @@ def optimizationModel(inputData, modelType):
 
 filename = 'variables_BAP.xlsx'
 data = readInputFile(filename)
+
 model1 = optimizationModel(data, 'test')
+# solver settings
 opt=SolverFactory('gurobi')
 opt.options["MIPGap"] = 0.0
+
 results=opt.solve(model1)
+#model1.display()
+#model1.pprint()
 
-# plot to test
+for x in model1.X:  
+      for t in model1.T:
+          print(model1.Consumption[t]() * model1.timestep[x]())
+  
+#for x in model1.X:
+      for t in model1.T:
+          print(model1.PV[t]() * model1.timestep[x]())   
+
+# Plotting the Load
+load_plot = []
 for t in model1.T:
-    print(model1.Consumption[t]())
-    
+    load_plot.append(model1.Consumption[t]())
+plt.plot(load_plot)
+
+# Plotting the Load
+solar_plot = []
 for t in model1.T:
-    print(model1.PV[t]())
-    
-for b in model1.B:
-    print(model1.BESS_SOEini[b]())
-    
-for x in model1.X:
-    print(model1.timestep[x]())
-    
-exportDecisionVariables.exportDecisionVariables(model1, 'DecisionVariablesTest1.xlsx')
-    
-#plt.plot(model1.Consumption[t]())
-#plt.ylim(1,1000)
-#plt.xlim(1,10)
+    solar_plot.append(model1.PV[t]())
+plt.plot(solar_plot)
 
-
-#plt.plot(pandas.read_excel(filename, sheet_name='Load', index_col=0))
+# Plotting the objective function
+print(model1.Obj())
