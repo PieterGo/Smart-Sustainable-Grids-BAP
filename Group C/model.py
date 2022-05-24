@@ -94,7 +94,6 @@ def optimizationModel(inputData, modelType):
 
     # to do: for e in model.E: (EV)
 
-    # Probably (definitely) works until here, tested values correspond to input
 #------------------------------------------------------------------------------
     # Define the Decision Variables
     #BESS
@@ -114,18 +113,28 @@ def optimizationModel(inputData, modelType):
 
     def SOE(model, b, t):
         if model.T.ord(t) == 1:
-            return model.SOE[b,t] == model.BESS_SOEini[b] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
+            return model.SOE[b,t] == model.BESS_SOEini[b] + model.Pch[b,t] * model.BESS_Eff[b] \
+                                    - model.Pdis[b,t]/model.BESS_Eff[b]
         if model.T.ord(t) > 1:
-            return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + model.Pch[b,t] * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
-                 
+            return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + model.Pch[b,t] * \
+                                    model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
+    
+    def BatSwitch(model, b, t):
+        if model.Consumption[t]() - model.PV[t]() > 0:
+            return model.u_bess[b,t] == 0
+        if model.Consumption[t]() - model.PV[t]() < 0:
+            return model.u_bess[b,t] == 1
+        if model.Consumption[t]() -model.PV[t]() == 0:
+            return model.u_idle[b,t] == 0
+
     def BESS_SOE_max(model, b, t):
         return model.SOE[b,t] <= model.BESS_SOEmax[b]
     
     # BESS_SOE_min is not needed, since model.SOE specifies NonNegativeReals
     
     def BESS_Charging(model, b, t):
-       return model.Pch[b,t] <= model.BESS_Pmax[b] * model.u_bess[b,t]
-
+        return model.Pch[b,t] <=  model.BESS_Pmax[b] * model.u_bess[b, t]
+                                                        
     def BESS_Discharging(model, b, t): 
        return model.Pdis[b, t] <= model.BESS_Pmax[b] * (1-model.u_bess[b, t])
 
@@ -142,6 +151,7 @@ def optimizationModel(inputData, modelType):
     model.ConBESSCharging = Constraint(model.B, model.T, rule=BESS_Charging)
     model.ConBESSDischarging = Constraint(model.B, model.T, rule=BESS_Discharging)
     model.ConBESSidle = Constraint(model.B, model.T, rule=BESS_idle)
+    model.ConBatSwitch = Constraint(model.B, model.T, rule=BatSwitch)
     
     return model
 
@@ -155,27 +165,34 @@ opt.options["MIPGap"] = 0.0
 
 results=opt.solve(model1)
 #model1.display()
-#model1.pprint()
+model1.pprint()
 
-for x in model1.X:  
-      for t in model1.T:
-          print(model1.Consumption[t]() * model1.timestep[x]())
+# for x in model1.X:  
+#       for t in model1.T:
+#           print(model1.Consumption[t]() * model1.timestep[x]())
   
-#for x in model1.X:
-      for t in model1.T:
-          print(model1.PV[t]() * model1.timestep[x]())   
+# #for x in model1.X:
+#       for t in model1.T:
+#           print(model1.PV[t]() * model1.timestep[x]())   
+
+TFpower_plot = []
+for b in model1.B:
+    for t in model1.T:
+        TFpower_plot.append(model1.Consumption[t]() + model1.Pch[b, t]() \
+                            - model1.PV[t]() - model1.Pdis[b, t]())
+plt.plot(TFpower_plot, color = 'red')
 
 # Plotting the Load
 load_plot = []
 for t in model1.T:
     load_plot.append(model1.Consumption[t]())
-plt.plot(load_plot)
+plt.plot(load_plot, color = 'green')
 
 # Plotting the Load
 solar_plot = []
 for t in model1.T:
     solar_plot.append(model1.PV[t]())
-plt.plot(solar_plot)
+plt.plot(solar_plot, color = 'orange')
 
 # Plotting the objective function
 print(model1.Obj())
