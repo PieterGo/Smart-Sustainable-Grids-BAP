@@ -85,8 +85,9 @@ def optimizationModel(inputData, modelType):
     for g in model.G: # transformer parameters
         model.Pmax[g] = TransformerData.loc[g,'Pmax']
         
-    for x in model.X:
-        model.timestep[x] = TimeStep.loc[x, 'timestep']
+    #for x in model.X:
+        #model.timestep[x] = TimeStep.loc[x, 'timestep']
+        timestep = 0.25
         
     #for l in model.L: # load parameters
     for t in model.T:
@@ -100,16 +101,38 @@ def optimizationModel(inputData, modelType):
     model.SOE = Var(model.B, model.T, within=NonNegativeReals)
     model.Pch = Var(model.B, model.T, within=NonNegativeReals)
     model.Pdis = Var(model.B, model.T, within=NonNegativeReals)
-    model.u_bess = Var(model.B, model.T, within=Binary)
+    model.u_bess = Var(model.B, model.T, within=Binary)         # 1 is charging
     model.u_idle = Var(model.B, model.T, within=Binary)
+    model.Pgrid_plus = Var(model.T, within=NonNegativeReals)    # pushing from
+    model.Pgrid_minus = Var(model.T, within=NonNegativeReals)   # pulling to
+    model.u_grid = Var(model.T, within=Binary)                  # 1 is pulling
     # to do: EV toevoegen
 
 #---------------------------------------------------------
     # Define Constraints
       
     def ObjectiveFcn(model):
-        return model.timestep[x] * sum(model.Consumption[t] + model.Pch[b,t] \
-                   - model.PV[t] - model.Pdis[b,t] for t in model.T)
+        return model.Pgrid_plus[t] + model.Pgrid_minus[t]
+    
+    def PGrid(model, b, t):
+        return model.Pgrid_plus[t] - model.Pgrid_minus[t] == model.Consumption[t] + model.Pch[b,t] \
+                   - model.PV[t] - model.Pdis[b, t]
+                   
+    def GridPull(model, g, t):
+        #if model.u_grid[t]() == 0:
+        #    return model.Pgrid_minus[t] == 0
+        #if model.u_grid[t]() == 1:
+            return model.Pgrid_minus[t] <= model.Pmax[g] * model.u_grid[t]
+        #else:
+        #    return Constraint.Skip
+        
+    def GridPush(model, g, t):
+        #if model.u_grid[t]() == 1:
+        #    return model.Pgrid_plus[t] == 0
+        #if model.u_grid[t]() == 0:
+            return model.Pgrid_plus[t] <= model.Pmax[g] * (1-model.u_grid[t])
+        #else:
+        #    return Constraint.Skip
 
     def SOE(model, b, t):
         if model.T.ord(t) == 1:
@@ -118,14 +141,6 @@ def optimizationModel(inputData, modelType):
         if model.T.ord(t) > 1:
             return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + model.Pch[b,t] * \
                                     model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b]
-    
-    def BatSwitch(model, b, t):
-        if model.Consumption[t]() - model.PV[t]() > 0:
-            return model.u_bess[b,t] == 0
-        if model.Consumption[t]() - model.PV[t]() < 0:
-            return model.u_bess[b,t] == 1
-        if model.Consumption[t]() -model.PV[t]() == 0:
-            return model.u_idle[b,t] == 0
 
     def BESS_SOE_max(model, b, t):
         return model.SOE[b,t] <= model.BESS_SOEmax[b]
@@ -151,7 +166,9 @@ def optimizationModel(inputData, modelType):
     model.ConBESSCharging = Constraint(model.B, model.T, rule=BESS_Charging)
     model.ConBESSDischarging = Constraint(model.B, model.T, rule=BESS_Discharging)
     model.ConBESSidle = Constraint(model.B, model.T, rule=BESS_idle)
-    model.ConBatSwitch = Constraint(model.B, model.T, rule=BatSwitch)
+    model.ConPGrid = Constraint(model.B, model.T, rule=PGrid)
+    model.ConGridPull = Constraint(model.G, model.T, rule=GridPull)
+    model.ConGridPush = Constraint(model.G, model.T, rule=GridPush)
     
     return model
 
@@ -177,22 +194,49 @@ model1.pprint()
 
 TFpower_plot = []
 for b in model1.B:
-    for t in model1.T:
-        TFpower_plot.append(model1.Consumption[t]() + model1.Pch[b, t]() \
-                            - model1.PV[t]() - model1.Pdis[b, t]())
-plt.plot(TFpower_plot, color = 'red')
+     for t in model1.T:
+         TFpower_plot.append(model1.Consumption[t]() + model1.Pch[b, t]() \
+                             - model1.PV[t]() - model1.Pdis[b, t]())
+             
+x1 = range(len(TFpower_plot)) 
+plt.step(x1, TFpower_plot, color = 'red')
 
 # Plotting the Load
 load_plot = []
 for t in model1.T:
     load_plot.append(model1.Consumption[t]())
-plt.plot(load_plot, color = 'green')
+    
+x2 = range(len(load_plot))
+plt.step(x2, load_plot, color = 'blue')
 
-# Plotting the Load
+# Plotting the PV
 solar_plot = []
 for t in model1.T:
     solar_plot.append(model1.PV[t]())
-plt.plot(solar_plot, color = 'orange')
+    
+x3 = range(len(solar_plot))   
+plt.step(x3, solar_plot, color = 'orange')
 
-# Plotting the objective function
+# Printing the objective function
 print(model1.Obj())
+
+
+
+
+
+
+
+
+#def NoFeedingBack(model, b ,t):
+#    return sum(model.Consumption[t] + model.Pch[b,t] - model.PV[t] - model.Pdis[b,t] for t in model.T) >= 0
+
+#     model.ConNoFeedingBack = Constraint(model.B, model.T, rule=NoFeedingBack)
+
+
+ #   def ForceCharging(model, b, t):
+ #       if model.u_bess[b,t]() == 1:
+ #           return model.Pch[b,t] >= model.Consumption[t] - model.PV[t]
+ #       else:
+ #          return Constraint.Skip
+ 
+ #    model.ConForceCharging = Constraint(model.B, model.T, rule=ForceCharging)
