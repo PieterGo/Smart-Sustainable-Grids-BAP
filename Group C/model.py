@@ -14,7 +14,7 @@ def readInputFile(filename):
     TransformerData = pandas.read_excel(filename, sheet_name= 'Transformer', index_col=0) #rated power transformer
     PVProduction = pandas.read_excel(filename, sheet_name='PVProduction', index_col=0) # omgerekende irradiation
     StorageData = pandas.read_excel(filename, sheet_name= 'StorageSystem', index_col=0) # batterij
-    EVDemand= pandas.read_excel(filename, sheet_name = 'EVDemand', index_col=0) #EV charging data
+    EVDemand = pandas.read_excel(filename, sheet_name = 'EVDemand', index_col=0) #EV charging data
 
     # Return directory 
     return {'PVProduction':PVProduction, 'StorageData':StorageData,
@@ -36,8 +36,6 @@ def optimizationModel(inputData, modelType):
     #Define Sets
     model.T = Set(ordered=True, initialize=LoadData.index)  # Set for time
     model.B = Set(ordered=True, initialize=StorageData.index)  # Set for battery
-    model.P = Set(ordered=True, initialize=PVProduction.index)  # Set for PV
-    model.E = Set(ordered=True, initialize=EVDemand.index)  # Set for EV load
     model.G = Set(ordered=True, initialize=TransformerData.index) # Set for (grid) transformer
 
 #------------------------------------------------------------------------------
@@ -53,7 +51,8 @@ def optimizationModel(inputData, modelType):
     model.PV = Param(model.T, within=NonNegativeReals, mutable=True)  # Production of PV system k
         # Transformer
     model.Pmax = Param(model.G, within=NonNegativeReals, mutable=True)
-    # EV... to do
+        # EV
+    model.EV = Param(model.T, within=NonNegativeReals, mutable=True)
 
 #------------------------------------------------------------------------------
     # Initialize Parameters
@@ -79,7 +78,9 @@ def optimizationModel(inputData, modelType):
     for t in model.T:
         model.Consumption[t] = LoadData.loc[t,'LoadData']
 
-    # to do: for e in model.E: (EV)
+        # EV Parameter
+    for t in model.T:
+        model.EV[t] = EVDemand.loc[t, 'EVDemand']
 
 #------------------------------------------------------------------------------
     # Define the Decision Variables
@@ -98,11 +99,15 @@ def optimizationModel(inputData, modelType):
     model.u_curtail = Var(model.T, within=NonNegativeReals)     # Curtail %
     model.PVprod = Var(model.T, within=NonNegativeReals)        # PV Production
     
-    # to do: EV toevoegen
+        # Added for EV curtailment/different wattages
+    model.EVDelay = Var(model.T, within=NonNegativeReals)
 
 #------------------------------------------------------------------------------
     # Define Constraints
         # TODO: Add comments to this part explaining each constraint
+        
+    def ObjectiveFcn(model):
+        return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)    
         
     # Added in order to have curtailment
     def Curtail(model, t):
@@ -112,13 +117,10 @@ def optimizationModel(inputData, modelType):
     
     def PVcurtail(model, t):
         return model.PVprod[t] == model.PV[t] * model.u_curtail[t]
-      
-    def ObjectiveFcn(model):
-        return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)
     
     def PGrid(model, b, t):
         return model.Pgrid_plus[t] - model.Pgrid_minus[t] == model.Consumption[t] + model.Pch[b,t] \
-                   - model.PVprod[t] - model.Pdis[b, t]
+                   + model.EV[t] - model.PVprod[t] - model.Pdis[b, t]
                    
     def GridPull(model, g, t):
         return model.Pgrid_minus[t] <= model.Pmax[g] * model.u_grid[t]
@@ -210,11 +212,11 @@ x = range(len(SOE_plot_s))
     # Winter
 load_plot_w = []
 for t in model_winter.T:
-    load_plot_w.append(model_winter.Consumption[t]())
+    load_plot_w.append(model_winter.Consumption[t]() + model_winter.EV[t]())
     # Summer
 load_plot_s = []
 for t in model_summer.T:
-    load_plot_s.append(model_summer.Consumption[t]())
+    load_plot_s.append(model_summer.Consumption[t]() + model_summer.EV[t]())
 
 # Get Solar plot data
     # Winter
@@ -298,10 +300,14 @@ ax2=ax.twinx()
 ax2.step(x, Pgrid_plot_s, color="red")
 ax2.set_ylabel("Pgrid [kW]",color="red")
 plt.show()
-    
+
 #------------------------------------------------------------------------------
     # Printing the objective function to get total energy usage of the week
-print("Winter:")
+print("Winter with optimization:")
 print(model_winter.Obj())
+print('Winter no battery no PV:')
+print(0.25*sum(load_plot_w))
 print("Summer:")
 print(model_summer.Obj())
+print('Summer no battery no PV:')
+print(0.25*sum(load_plot_s))
