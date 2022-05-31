@@ -96,31 +96,52 @@ def optimizationModel(inputData, modelType):
     model.u_grid = Var(model.T, within=Binary)                  # 1 is pulling
     
     # Added in order to have curtailment
-    model.u_curtail = Var(model.T, within=NonNegativeReals)     # Curtail %
+    model.curtail_pv = Var(model.T, within=NonNegativeReals)    # Curtail % of PV
     model.PVprod = Var(model.T, within=NonNegativeReals)        # PV Production
     
         # Added for EV curtailment/different wattages
-    model.EVDelay = Var(model.T, within=NonNegativeReals)
+    model.curtail_ev = Var(model.T, within=NonNegativeReals)    # Curtail % of EV
+    model.EVDelayed = Var(model.T, within=NonNegativeReals)
+    model.EVNow = Var(model.T, within=NonNegativeReals)
+    model.EVNext = Var(model.T, within=NonNegativeReals)
 
 #------------------------------------------------------------------------------
     # Define Constraints
         # TODO: Add comments to this part explaining each constraint
+   
+###########################################  
+    def CurtailEV(model, t):
+        return model.curtail_ev[t] <= 1   
+    
+    def ChargeEVNow(model, t):
+        return model.EVNow[t] == model.EV[t] * model.curtail_ev[t]
+           
+    def ChargeEVDelayed(model, t):
+        return model.EVDelayed[t] == model.EV[t] - model.EVNow[t]
+    
+    def EVDelayedForce(model, t):
+        if model.T.ord(t) == 1:
+            return model.EVNext[t] == model.EVNow[t]
+        if model.T.ord(t) > 1:
+            return model.EVNext[t] == model.EVDelayed[model.T.prev(t)] + model.EVNow[t]
+###########################################
+        
         
     def ObjectiveFcn(model):
         return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)    
         
     # Added in order to have curtailment
-    def Curtail(model, t):
-        return model.u_curtail[t] <= 1 
+    def CurtailPV(model, t):
+        return model.curtail_pv[t] <= 1 
     
     # Curtail > 0 not needed since its NonNegativeReal
     
     def PVcurtail(model, t):
-        return model.PVprod[t] == model.PV[t] * model.u_curtail[t]
+        return model.PVprod[t] == model.PV[t] * model.curtail_pv[t]
     
     def PGrid(model, b, t):
         return model.Pgrid_plus[t] - model.Pgrid_minus[t] == model.Consumption[t] + model.Pch[b,t] \
-                   + model.EV[t] - model.PVprod[t] - model.Pdis[b, t]
+                   + model.EVNext[t] - model.PVprod[t] - model.Pdis[b, t]
                    
     def GridPull(model, g, t):
         return model.Pgrid_minus[t] <= model.Pmax[g] * model.u_grid[t]
@@ -167,8 +188,14 @@ def optimizationModel(inputData, modelType):
     model.ConBESSidle = Constraint(model.B, model.T, rule=BESS_idle)
     
     # Added in order to have curtailment
-    model.ConCurtail = Constraint(model.T, rule=Curtail)
+    model.ConCurtailPV = Constraint(model.T, rule=CurtailPV)
     model.ConPVcurtail = Constraint(model.T, rule=PVcurtail)
+    
+    # Added in order to have curtailment of EV
+    model.ConCurtailEV = Constraint(model.T, rule=CurtailEV)
+    model.ConChargeEVNow = Constraint(model.T, rule=ChargeEVNow)
+    model.ConChargeEVDelayed = Constraint(model.T, rule=ChargeEVDelayed)
+    model.ConEVDelayedForce = Constraint(model.T, rule=EVDelayedForce)
     
     return model
 
@@ -311,3 +338,27 @@ print("Summer:")
 print(model_summer.Obj())
 print('Summer no battery no PV:')
 print(0.25*sum(load_plot_s))
+
+#-------------------
+EV_total_w = []
+for t in model_winter.T:
+    EV_total_w.append(model_winter.EV[t]())
+    
+EV_sum_w = []
+for t in model_winter.T:
+    EV_sum_w.append(model_winter.EVNow[t]() + model_winter.EVDelayed[t]())
+print('\n')
+print(sum(EV_total_w))
+print(sum(EV_sum_w))
+
+EV_total_s = []
+for t in model_summer.T:
+    EV_total_s.append(model_summer.EV[t]())
+    
+EV_sum_s = []
+for t in model_summer.T:
+    EV_sum_s.append(model_summer.EVNow[t]() + model_summer.EVDelayed[t]())
+print('\n')
+print(sum(EV_total_s))
+print(sum(EV_sum_s))
+
