@@ -10,8 +10,6 @@ def readInputFile(filename):
     
     # Load all data from excel sheets
     
-    TimeStep = pandas.read_excel(filename, sheet_name='Timestep', index_col=0) #time step
-    TimeData = pandas.read_excel(filename, sheet_name='Time', index_col=0) #time data 
     LoadData = pandas.read_excel(filename, sheet_name= 'Load', index_col=0) #data of load entire neighbourhood
     TransformerData = pandas.read_excel(filename, sheet_name= 'Transformer', index_col=0) #rated power transformer
     PVProduction = pandas.read_excel(filename, sheet_name='PVProduction', index_col=0) # omgerekende irradiation
@@ -19,7 +17,7 @@ def readInputFile(filename):
     EVDemand= pandas.read_excel(filename, sheet_name = 'EVDemand', index_col=0) #EV charging data
 
     # Return directory 
-    return {'PVProduction':PVProduction, 'StorageData':StorageData, 'TimeData':TimeData, 'TimeStep':TimeStep,
+    return {'PVProduction':PVProduction, 'StorageData':StorageData,
             'LoadData':LoadData, 'TransformerData':TransformerData, 'EVDemand':EVDemand}
 
 def optimizationModel(inputData, modelType):   
@@ -30,8 +28,6 @@ def optimizationModel(inputData, modelType):
     PVProduction = inputData['PVProduction']
     StorageData = inputData['StorageData']
     EVDemand = inputData['EVDemand']
-    TimeData = inputData['TimeData']
-    TimeStep = inputData['TimeStep']
 #------------------------------------------------------------------------------
     # Define the Model
     model = ConcreteModel()
@@ -295,7 +291,7 @@ ax.step(x, Pgrid_plot_w, color="blue")
 # set x-axis label
 ax.set_xlabel("timestep")
 # set y-axis label
-ax.set_ylabel("Pgrid [kW]")
+ax.set_ylabel("Pgrid [kW]", color='blue')
 # twin object for two different y-axis on the sample plot
 ax2=ax.twinx()
 # make a plot with different y-axis using second axis object
