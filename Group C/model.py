@@ -43,7 +43,6 @@ def optimizationModel(inputData, modelType):
     model.P = Set(ordered=True, initialize=PVProduction.index)  # Set for PV
     model.E = Set(ordered=True, initialize=EVDemand.index)  # Set for EV load
     model.G = Set(ordered=True, initialize=TransformerData.index) # Set for (grid) transformer
-    model.X = Set(ordered=True, initialize=TimeStep.index) # Time Step
 
 #------------------------------------------------------------------------------
     #Define Parameters
@@ -179,10 +178,10 @@ def optimizationModel(inputData, modelType):
     # Retrieve data from winter and summer Excel sheets and create model
 
 data_winter = readInputFile('variables_BAP_winter.xlsx')
-model_winter = optimizationModel(data, 'winter') # Simulates the first week of January
+model_winter = optimizationModel(data_winter, 'winter') # Simulates the first week of January
 
 data_summer = readInputFile('variables_BAP_summer.xlsx')
-model_summer = optimizationModel(data, 'summer') # Simulates the first week of July
+model_summer = optimizationModel(data_summer, 'summer') # Simulates the first week of July
 
 #------------------------------------------------------------------------------
     # Initialises the solver and its settings and solves the model
@@ -190,7 +189,8 @@ model_summer = optimizationModel(data, 'summer') # Simulates the first week of J
 opt=SolverFactory('gurobi')
 opt.options["MIPGap"] = 0.0
 
-results=opt.solve(model1)
+results_winter=opt.solve(model_winter)
+results_summer=opt.solve(model_summer)
 
 #------------------------------------------------------------------------------
     # Extract data from both winter and summer models into arrays
@@ -208,7 +208,7 @@ for b in model_summer.B:
          SOE_plot_s.append(model_summer.SOE[b, t]()) 
        
 # Retrieve simulation length from length of SOE array
-x = range(len(SOE_plot_summer)) 
+x = range(len(SOE_plot_s)) 
 
 # Get Load plot data
     # Winter
@@ -232,27 +232,28 @@ for t in model_summer.T:
 
 # Get Curtailed Solar plot data
     # Winter
-solarprod_w_plot = []
+solarprod_plot_w = []
 for t in model_winter.T:
-    solarprod_w_plot.append(model_winter.PVprod[t]())
+    solarprod_plot_w.append(model_winter.PVprod[t]())
     # Summer
-solarprod_s_plot = []
+solarprod_plot_s = []
 for t in model_summer.T:
-    solarprod_s_plot.append(model_summer.PVprod[t]())
+    solarprod_plot_s.append(model_summer.PVprod[t]())
 
 #------------------------------------------------------------------------------
     # Create the plots 
         # For now this plot suffices to give a quick observation 
             # Winter
 fig, axs_w = plt.subplots(2, 2)
-axs_w[0, 0].step(x, SOE_plot_w, color = 'blue')
+axs_w[0, 0].step(x, SOE_plot_w, color = 'green')
 axs_w[0, 0].set_title('SOE [kWh]')
 axs_w[0, 1].step(x, load_plot_w, color = 'blue')
 axs_w[0, 1].set_title('Load [kW]')
-axs_w[1, 0].step(x, solar_plot_w, color = 'blue')
+axs_w[1, 0].step(x, solar_plot_w, color = 'orange')
 axs_w[1, 0].set_title('Possible Solar [kW]')
-axs_w[1, 1].step(x, solarprod_plot_w, color = 'blue')
+axs_w[1, 1].step(x, solarprod_plot_w, color = 'red')
 axs_w[1, 1].set_title('Solar production [kW]')
+plt.suptitle('Winter')
 
     # Hide x labels and tick labels for top plots and y ticks for right plots.
 for ax in axs_w.flat:
@@ -260,14 +261,15 @@ for ax in axs_w.flat:
     
     # Summer
 fig, axs_s = plt.subplots(2, 2)
-axs_s[0, 0].step(x, SOE_plot_s, color = 'red')
+axs_s[0, 0].step(x, SOE_plot_s, color = 'green')
 axs_s[0, 0].set_title('SOE [kWh]')
-axs_s[0, 1].step(x, load_plot_s, color = 'red')
+axs_s[0, 1].step(x, load_plot_s, color = 'blue')
 axs_s[0, 1].set_title('Load [kW]')
-axs_s[1, 0].step(x, solar_plot_s, color = 'red')
+axs_s[1, 0].step(x, solar_plot_s, color = 'orange')
 axs_s[1, 0].set_title('Possible Solar [kW]')
 axs_s[1, 1].step(x, solarprod_plot_s, color = 'red')
 axs_s[1, 1].set_title('Solar production [kW]')
+plt.suptitle('Summer')
 
     # Hide x labels and tick labels for top plots and y ticks for right plots.
 for ax in axs_s.flat:
@@ -303,4 +305,7 @@ plt.show()
     
 #------------------------------------------------------------------------------
     # Printing the objective function to get total energy usage of the week
-print(model1.Obj())
+print("Winter:")
+print(model_winter.Obj())
+print("Summer:")
+print(model_summer.Obj())
