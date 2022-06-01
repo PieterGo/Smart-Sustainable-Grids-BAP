@@ -102,25 +102,18 @@ def optimizationModel(inputData, modelType):
         # Added for EV curtailment/different wattages
     model.curtail_ev = Var(model.T, within=NonNegativeReals)    # Curtail % of EV
     model.EVDelayed = Var(model.T, within=NonNegativeReals)
-    # model.EVNow = Var(model.T, within=NonNegativeReals)
-    # model.EVOpt = Var(model.T, within=NonNegativeReals)
-    
-      # Added for new method for EV charging
     model.EVTotal = Var(model.T, within=NonNegativeReals)
     model.EVSup = Var(model.T, within=NonNegativeReals)
-    model.supplied_total = Var(model.T, within=NonNegativeReals)
 
 #------------------------------------------------------------------------------
     # Define Constraints
         # TODO: Add comments to this part explaining each constraint
    
-#############################################
     def CurtailEV(model, t):
         if model.T.ord(t) == len(model.T):
             return model.curtail_ev[t] == 1
         else:
             return model.curtail_ev[t] <= 1
-
 
     def TotalEVDemand(model, t):
         if model.T.ord(t) == 1:
@@ -129,25 +122,13 @@ def optimizationModel(inputData, modelType):
             return model.EVTotal[t] == model.EV[t] + model.EVDelayed[model.T.prev(t)]
         
     def SupplyEVNow(model, t):
-        # if model.T.ord(t) > 2:
-        #     return model.EVSup[t] == model.EVTotal[t] * model.curtail_ev[t] + model.u_total_1 * model.EV[t-2]
-        # else:
-            if model.T.ord(t) == 1:
-                return  model.EVSup[t] == model.EV[t] * model.curtail_ev[t]
-            if model.T.ord(t) > 1:
-                return model.EVSup[t] == model.EVTotal[t] * model.curtail_ev[t]
+        return model.EVSup[t] == model.EVTotal[t] * model.curtail_ev[t]
     
     def DelayEV(model, t):
-        # if model.T.ord(t) > 2:
-        #     return model.EVDelayed[t] == (1-model.curtail_ev[t]) * model.EVTotal[t] - model.u_total_1 * model.EV[t-2]
-        # else:
-            return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
+        return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
     
     def ForceCharge(model, t):
-        #model.supplied_total[t] = 0
         if model.T.ord(t) > 20:
-            #for i in range(0,2):
-                #model.supplied_total[t] = model.supplied_total[t] + model.EVSup[t-i]
             return model.EVTotal[t-20] <= model.EVSup[t-20] + model.EVSup[t-19] + model.EVSup[t-18] \
                                         + model.EVSup[t-17] + model.EVSup[t-16] + model.EVSup[t-15] \
                                         + model.EVSup[t-14] + model.EVSup[t-13] + model.EVSup[t-12] \
@@ -156,35 +137,8 @@ def optimizationModel(inputData, modelType):
                                         + model.EVSup[t-5] + model.EVSup[t-4] + model.EVSup[t-3] \
                                         + model.EVSup[t-2] + model.EVSup[t-1] + model.EVSup[t]
         else:
-            return Constraint.Skip
-        
-        
-    # def ForceCharge(model, t):
-    #     u_total = 1
-    #     if model.T.ord(t) > 2:
-    #         #for i in range (0,2):
-    #         #     u_total = u_total * (1-model.curtail_ev[t-i])
-    #         # return model.u_total_1 == u_total
-    #         return model.u_total_1 == (1-model.curtail_ev[t-2])*(1-model.curtail_ev[t-1])*(1-model.curtail_ev[t])
-    #     else:
-    #         return Constraint.Skip
-        
-# sum(EVSupplied t - 5 tot t) >= EV(t - 5)            
+            return Constraint.Skip           
 
-    # def ChargeEVNow(model, t):
-    #     return model.EVNow[t] == model.EV[t] * model.curtail_ev[t]
-           
-    # def ChargeEVDelayed(model, t):
-    #     return model.EVDelayed[t] == model.EV[t] - model.EVNow[t]
-    
-    # def EVDelayedForce(model, t):
-    #     if model.T.ord(t) == 1:
-    #         return model.EVOpt[t] == model.EVNow[t]
-    #     if model.T.ord(t) > 1:
-    #         return model.EVOpt[t] == model.EVDelayed[model.T.prev(t)] + model.EVNow[t]
-###########################################
-        
-        
     def ObjectiveFcn(model):
         return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)    
         
@@ -251,11 +205,6 @@ def optimizationModel(inputData, modelType):
     
     # Added in order to have curtailment of EV
     model.ConCurtailEV = Constraint(model.T, rule=CurtailEV)
-    #model.ConChargeEVNow = Constraint(model.T, rule=ChargeEVNow)
-    #model.ConChargeEVDelayed = Constraint(model.T, rule=ChargeEVDelayed)
-    # model.ConEVDelayedForce = Constraint(model.T, rule=EVDelayedForce)
-    
-    # Added for test
     model.ConTotalEVDemand = Constraint(model.T, rule=TotalEVDemand)
     model.ConSupplyEVNow = Constraint(model.T, rule=SupplyEVNow)
     model.ConDelayEV = Constraint(model.T, rule=DelayEV)
