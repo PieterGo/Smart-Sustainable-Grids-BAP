@@ -104,6 +104,8 @@ def optimizationModel(inputData, modelType):
     model.EVDelayed = Var(model.T, within=NonNegativeReals)
     model.EVTotal = Var(model.T, within=NonNegativeReals)
     model.EVSup = Var(model.T, within=NonNegativeReals)
+    model.SOPSup = Var(model.T, within=NonNegativeReals)
+    model.SOPDemand = Var(model.T, within=NonNegativeReals)
 
 #------------------------------------------------------------------------------
     # Define Constraints
@@ -123,22 +125,28 @@ def optimizationModel(inputData, modelType):
         
     def SupplyEVNow(model, t):
         return model.EVSup[t] == model.EVTotal[t] * model.curtail_ev[t]
-    
+     
     def DelayEV(model, t):
         return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
     
+    def TotalSupply(model, t):
+        if model.T.ord(t) == 1:
+            return model.SOPSup[t] == model.EVSup[t]
+        if model.T.ord(t) > 1:
+            return model.SOPSup[t] == model.SOPSup[model.T.prev(t)] + model.EVSup[t]
+        
+    def TotalDemand(model, t):
+        if model.T.ord(t) == 1:
+            return model.SOPDemand[t] == model.EV[t]
+        if model.T.ord(t) > 1:
+            return model.SOPDemand[t] == model.SOPDemand[model.T.prev(t)] + model.EV[t]
+    
     def ForceCharge(model, t):
-        if model.T.ord(t) > 20:
-            return model.EVTotal[t-20] <= model.EVSup[t-20] + model.EVSup[t-19] + model.EVSup[t-18] \
-                                        + model.EVSup[t-17] + model.EVSup[t-16] + model.EVSup[t-15] \
-                                        + model.EVSup[t-14] + model.EVSup[t-13] + model.EVSup[t-12] \
-                                        + model.EVSup[t-11] + model.EVSup[t-10] + model.EVSup[t-9] \
-                                        + model.EVSup[t-8] + model.EVSup[t-7] + model.EVSup[t-6] \
-                                        + model.EVSup[t-5] + model.EVSup[t-4] + model.EVSup[t-3] \
-                                        + model.EVSup[t-2] + model.EVSup[t-1] + model.EVSup[t]
+        if model.T.ord(t) > 8:
+            return model.SOPDemand[t-8] <= model.SOPSup[t]
         else:
-            return Constraint.Skip           
-
+            return Constraint.Skip      
+        
     def ObjectiveFcn(model):
         return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)    
         
@@ -208,7 +216,9 @@ def optimizationModel(inputData, modelType):
     model.ConTotalEVDemand = Constraint(model.T, rule=TotalEVDemand)
     model.ConSupplyEVNow = Constraint(model.T, rule=SupplyEVNow)
     model.ConDelayEV = Constraint(model.T, rule=DelayEV)
-    model.ForceCharge = Constraint(model.T, rule=ForceCharge)
+    model.ConForceCharge = Constraint(model.T, rule=ForceCharge)
+    model.ConTotalSupply = Constraint(model.T, rule=TotalSupply)
+    model.ConTotalDemand = Constraint(model.T, rule=TotalDemand)
     
     return model
 
@@ -376,3 +386,24 @@ print('\n')
 print(sum(EV_total_s))
 print(sum(EV_sum_s))
 
+EV_demand_plot = []
+for t in model_summer.T:
+    EV_demand_plot.append(model_summer.EV[t]())
+EV_supply_plot = []
+for t in model_summer.T:
+        EV_supply_plot.append(model_summer.EVSup[t]())
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+# make a plot
+ax.step(x, EV_demand_plot, color="blue")
+# set x-axis label
+ax.set_xlabel("timestep")
+# set y-axis label
+ax.set_ylabel("P [kW]", color='blue')
+# twin object for two different y-axis on the sample plot
+#ax2=ax.twinx()
+# make a plot with different y-axis using second axis object
+ax.step(x, EV_supply_plot, color="red", alpha=0.3)
+ax.set_ylabel("P [kW]",color="red")
+plt.show()
