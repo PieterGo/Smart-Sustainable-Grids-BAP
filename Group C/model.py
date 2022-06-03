@@ -129,13 +129,13 @@ def optimizationModel(inputData, modelType):
     def DelayEV(model, t):
         return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
     
-    def TotalSupply(model, t):
+    def TotalSupply(model, t):       # Niet in mathematical model
         if model.T.ord(t) == 1:
             return model.SOPSup[t] == model.EVSup[t]
         if model.T.ord(t) > 1:
             return model.SOPSup[t] == model.SOPSup[model.T.prev(t)] + model.EVSup[t]
         
-    def TotalDemand(model, t):
+    def TotalDemand(model, t):      # Niet in mathematical model
         if model.T.ord(t) == 1:
             return model.SOPDemand[t] == model.EV[t]
         if model.T.ord(t) > 1:
