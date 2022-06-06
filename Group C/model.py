@@ -366,19 +366,50 @@ print('\n')
 print(sum(EV_total_s))
 print(sum(EV_sum_s))
 
-EV_demand_plot = []
+EV_demand_plot_summer = []
 for t in model_summer.T:
-    EV_demand_plot.append(model_summer.EV[t]())
-EV_supply_plot = []
+    EV_demand_plot_summer.append(model_summer.EV[t]())
+EV_supply_plot_summer = []
 for t in model_summer.T:
-        EV_supply_plot.append(model_summer.EVSup[t]())
+        EV_supply_plot_summer.append(model_summer.EVSup[t]())
 
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
-ax.step(x, EV_demand_plot, color="black", linewidth = 1, alpha=0.8)
+ax.step(x, EV_demand_plot_summer, color="blue", linewidth = 1.5, alpha=0.8, label = 'EV Power Demand')
+ax.step(x, EV_supply_plot_summer, color="red", linewidth = 1.5, alpha=0.8, label = 'EV Delayed Supply')
 ax.set_xlabel("Time [h]")
-ax.set_ylabel("P [kW]", color='black')
-ax.step(x, EV_supply_plot, color="blue", linewidth = 1, alpha=0.8)
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
+plt.title("EV power delayed in 1st week of July", fontsize = 16)
+plt.savefig('EV_delay_summer', dpi=1000, bbox_inches='tight')
+plt.show()
+
+EV_demand_plot_winter = []
+for t in model_winter.T:
+    EV_demand_plot_winter.append(model_winter.EV[t]())
+EV_supply_plot_winter = []
+for t in model_winter.T:
+        EV_supply_plot_winter.append(model_winter.EVSup[t]())
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, EV_demand_plot_winter, color="blue", linewidth = 1.5, alpha=0.8, label = 'EV Power Demand')
+ax.step(x, EV_supply_plot_winter, color="red", linewidth = 1.5, alpha=0.8, label = 'EV Delayed Supply')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
+plt.title("EV power delayed in 1st week of January", fontsize = 16)
+plt.savefig('EV_delay_winter', dpi=1000, bbox_inches='tight')
 plt.show()
 
 #------------------------------------------------------------------------------
