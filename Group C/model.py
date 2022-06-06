@@ -243,21 +243,11 @@ results_summer=opt.solve(model_summer)
 
 #------------------------------------------------------------------------------
     # Extract data from both winter and summer models into arrays
-
-# Get State of Energy plot data
-    # Winter
-SOE_plot_w = []
-for b in model_winter.B:
-     for t in model_winter.T:
-         SOE_plot_w.append(model_winter.SOE[b, t]())
-    # Summer
-SOE_plot_s = []
-for b in model_summer.B:
-     for t in model_summer.T:
-         SOE_plot_s.append(model_summer.SOE[b, t]()) 
        
 # Retrieve simulation length from length of SOE array
-x = range(len(SOE_plot_s)) 
+x = []
+for i in range(672):
+    x.append(i * 0.25)
 
 # Get Load plot data
     # Winter
@@ -279,52 +269,42 @@ solar_plot_s = []
 for t in model_summer.T:
     solar_plot_s.append(model_summer.PV[t]())
 
-# Get Curtailed Solar plot data
-    # Winter
-solarprod_plot_w = []
-for t in model_winter.T:
-    solarprod_plot_w.append(model_winter.PVprod[t]())
-    # Summer
-solarprod_plot_s = []
-for t in model_summer.T:
-    solarprod_plot_s.append(model_summer.PVprod[t]())
-
 #------------------------------------------------------------------------------
-    # Create the plots 
-        # For now this plot suffices to give a quick observation 
-            # Winter
-fig, axs_w = plt.subplots(2, 2)
-axs_w[0, 0].step(x, SOE_plot_w, color = 'green')
-axs_w[0, 0].set_title('SOE [kWh]')
-axs_w[0, 1].step(x, load_plot_w, color = 'blue')
-axs_w[0, 1].set_title('Load [kW]')
-axs_w[1, 0].step(x, solar_plot_w, color = 'orange')
-axs_w[1, 0].set_title('Possible Solar [kW]')
-axs_w[1, 1].step(x, solarprod_plot_w, color = 'red')
-axs_w[1, 1].set_title('Solar production [kW]')
-plt.suptitle('Winter')
+#     # Create the plots 
+#         # For now this plot suffices to give a quick observation 
+#             # Winter
+# fig, axs_w = plt.subplots(2, 2)
+# axs_w[0, 0].step(x, SOE_plot_w, color = 'green')
+# axs_w[0, 0].set_title('SOE [kWh]')
+# axs_w[0, 1].step(x, load_plot_w, color = 'blue')
+# axs_w[0, 1].set_title('Load [kW]')
+# axs_w[1, 0].step(x, solar_plot_w, color = 'orange')
+# axs_w[1, 0].set_title('Possible Solar [kW]')
+# axs_w[1, 1].step(x, solarprod_plot_w, color = 'red')
+# axs_w[1, 1].set_title('Solar production [kW]')
+# plt.suptitle('Winter')
 
-    # Hide x labels and tick labels for top plots and y ticks for right plots.
-for ax in axs_w.flat:
-    ax.label_outer() 
+#     # Hide x labels and tick labels for top plots and y ticks for right plots.
+# for ax in axs_w.flat:
+#     ax.label_outer() 
     
-    # Summer
-fig, axs_s = plt.subplots(2, 2)
-axs_s[0, 0].step(x, SOE_plot_s, color = 'green')
-axs_s[0, 0].set_title('SOE [kWh]')
-axs_s[0, 1].step(x, load_plot_s, color = 'blue')
-axs_s[0, 1].set_title('Load [kW]')
-axs_s[1, 0].step(x, solar_plot_s, color = 'orange')
-axs_s[1, 0].set_title('Possible Solar [kW]')
-axs_s[1, 1].step(x, solarprod_plot_s, color = 'red')
-axs_s[1, 1].set_title('Solar production [kW]')
-plt.suptitle('Summer')
+#     # Summer
+# fig, axs_s = plt.subplots(2, 2)
+# axs_s[0, 0].step(x, SOE_plot_s, color = 'green')
+# axs_s[0, 0].set_title('SOE [kWh]')
+# axs_s[0, 1].step(x, load_plot_s, color = 'blue')
+# axs_s[0, 1].set_title('Load [kW]')
+# axs_s[1, 0].step(x, solar_plot_s, color = 'orange')
+# axs_s[1, 0].set_title('Possible Solar [kW]')
+# axs_s[1, 1].step(x, solarprod_plot_s, color = 'red')
+# axs_s[1, 1].set_title('Solar production [kW]')
+# plt.suptitle('Summer')
 
-    # Hide x labels and tick labels for top plots and y ticks for right plots.
-for ax in axs_s.flat:
-    ax.label_outer()  
+#     # Hide x labels and tick labels for top plots and y ticks for right plots.
+# for ax in axs_s.flat:
+#     ax.label_outer()  
  
-#------------------------------------------------------------------------------
+# #------------------------------------------------------------------------------
     # Get data from transformer and plot for both winter and summer
   
 # Get Energy pushed to grid
@@ -342,7 +322,7 @@ fig,ax = plt.subplots()
 # make a plot
 ax.step(x, Pgrid_plot_w, color="blue")
 # set x-axis label
-ax.set_xlabel("timestep")
+ax.set_xlabel("Time [h]")
 # set y-axis label
 ax.set_ylabel("Pgrid [kW]", color='blue')
 # twin object for two different y-axis on the sample plot
@@ -395,15 +375,201 @@ for t in model_summer.T:
 
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
-# make a plot
-ax.step(x, EV_demand_plot, color="blue")
-# set x-axis label
-ax.set_xlabel("timestep")
-# set y-axis label
-ax.set_ylabel("P [kW]", color='blue')
-# twin object for two different y-axis on the sample plot
-#ax2=ax.twinx()
-# make a plot with different y-axis using second axis object
-ax.step(x, EV_supply_plot, color="red", alpha=0.3)
-ax.set_ylabel("P [kW]",color="red")
+ax.step(x, EV_demand_plot, color="black", linewidth = 1, alpha=0.8)
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]", color='black')
+ax.step(x, EV_supply_plot, color="blue", linewidth = 1, alpha=0.8)
 plt.show()
+
+#------------------------------------------------------------------------------
+    # Create first plot, Load+SOE+PVprod
+
+# Get total load plot data
+    # Winter
+Total_load_winter = []
+for t in model_winter.T:
+    Total_load_winter.append(model_winter.EVSup[t]()+model_winter.Consumption[t]())
+    # Summer
+Total_load_summer = []
+for t in model_summer.T:
+    Total_load_summer.append(model_summer.EVSup[t]()+model_summer.Consumption[t]())
+
+# Get State of Energy plot data
+    # Winter
+SOE_plot_winter = []
+for b in model_winter.B:
+     for t in model_winter.T:
+         SOE_plot_winter.append(model_winter.SOE[b, t]())
+    # Summer
+SOE_plot_summer = []
+for b in model_summer.B:
+     for t in model_summer.T:
+         SOE_plot_summer.append(model_summer.SOE[b, t]()) 
+         
+# Get Curtailed Solar plot data
+    # Winter
+solarprod_plot_winter = []
+for t in model_winter.T:
+    solarprod_plot_winter.append(model_winter.PVprod[t]())
+    # Summer
+solarprod_plot_summer = []
+for t in model_summer.T:
+    solarprod_plot_summer.append(model_summer.PVprod[t]())
+    
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, Total_load_winter, color="blue", linewidth = 1.5, alpha=0.8, label = 'Total Load')
+ax.step(x, solarprod_plot_winter, color="red", linewidth = 1.5, alpha=0.8, label = 'Used Solar Energy')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+ax2=ax.twinx()
+plt.minorticks_on()
+ax2.step(x, SOE_plot_winter, color="green", linewidth = 1.5, label = 'BESS State of Energy')
+ax2.set_ylabel("E [kWh]", color='green')
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Load, Solar production and BESS SOE in 1st week of January", fontsize = 16)
+plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.savefig('winter_system.png', dpi=1000, bbox_inches='tight')
+plt.show()      
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, Total_load_summer, color="blue", linewidth = 1.5, alpha=0.8, label = 'Total Load')
+ax.step(x, solarprod_plot_summer, color="red", linewidth = 1.5, alpha=0.8, label = 'Used Solar Energy')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+ax2=ax.twinx()
+plt.minorticks_on()
+ax2.step(x, SOE_plot_summer, color="green", linewidth = 1.5, label = 'BESS State of Energy')
+ax2.set_ylabel("E [kWh]", color='green')
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Load, Solar production and BESS SOE in 1st week of July", fontsize = 16)
+plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.savefig('summer_system.png', dpi=1000, bbox_inches='tight')
+plt.show()  
+
+# # Show the major grid lines with dark grey lines
+# plt.grid(axis = 'both', which='major', color='#666666', linestyle='-', alpha=0)
+
+# # Show the minor grid lines with very faint and almost transparent grey lines
+# plt.minorticks_on()
+# plt.grid(axis = 'both',which='minor', color='#999999', linestyle='-', alpha=0)
+#------------------------------------------------------------------------------
+    # Get Total Curtail Percentage Per Day In Summer
+get_curtail_summer = []
+for t in model_summer.T:
+    get_curtail_summer.append((1-model_summer.curtail_pv[t]())*15)     # Gives all curtail values in minutes/15 minutes
+  
+for i in range(len(solar_plot_s)):
+    if solar_plot_s[i] == 0: 
+        get_curtail_summer[i] = 0
+    
+get_curtail_summer_per_day = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+    for i in range(96):
+        get_curtail_summer_per_day[j] += get_curtail_summer[j*96+i]
+        
+minutes_day_solar_summer = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+    for i in range(96):
+        if solar_plot_s[j*96+i] != 0:
+            minutes_day_solar_summer[j] += 15
+
+get_curtail_percentage_summer = [0, 0, 0, 0, 0, 0, 0]
+for i in range(7):
+    get_curtail_percentage_summer[i] = get_curtail_summer_per_day[i]/minutes_day_solar_summer[i] # Divide by minutes that day of solar energy
+#------------------------------------------------------------------------------
+    # Get Total Curtail Percentage Per Day In Winter
+get_curtail_winter = []
+for t in model_winter.T:
+    get_curtail_winter.append((1-model_winter.curtail_pv[t]())*15)     # Gives all not used minutes/15 minutes
+  
+for i in range(len(solar_plot_s)):
+    if solar_plot_w[i] == 0: 
+        get_curtail_winter[i] = 0
+    
+get_curtail_winter_per_day = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+    for i in range(96):
+        get_curtail_winter_per_day[j] += get_curtail_winter[j*96+i]
+        
+minutes_day_solar_winter = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+    for i in range(96):
+        if solar_plot_w[j*96+i] != 0:
+            minutes_day_solar_winter[j] += 15
+
+get_curtail_percentage_winter = [0, 0, 0, 0, 0, 0, 0]
+for i in range(7):
+    get_curtail_percentage_winter[i] = get_curtail_winter_per_day[i]/minutes_day_solar_winter[i] # Divide by minutes that day of solar energy
+#------------------------------------------------------------------------------
+    # Plot the bar chart of solar curtailment
+Solar_energy_summer = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+     for i in range(96):
+         Solar_energy_summer[j] += solar_plot_s[j*96+i]*0.25
+    
+Used_solar_energy_summer = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+     for i in range(96):
+         Used_solar_energy_summer[j] += solarprod_plot_summer[j*96+i]*0.25
+         
+Solar_energy_winter = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+     for i in range(96):
+         Solar_energy_winter[j] += solar_plot_w[j*96+i]*0.25         
+
+Used_solar_energy_winter = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+     for i in range(96):
+         Used_solar_energy_winter[j] += solarprod_plot_winter[j*96+i]*0.25         
+         
+Used_solar_energy_summer_curtail = [0, 0, 0, 0, 0, 0, 0]
+for j in range(7):
+    Used_solar_energy_summer_curtail[j] = Solar_energy_summer[j]*get_curtail_percentage_summer[j]
+    
+X = ['July 1st','July 2nd','July 3rd','July 4th', 'July 5th', 'July 6th', 'July 7th']
+  
+X_axis = np.arange(len(X))
+  
+plt.bar(X_axis - 0.2, Solar_energy_summer, 0.4, label = 'Total Solar Energy', color = 'orange')
+plt.bar(X_axis + 0.2, Used_solar_energy_summer, 0.4, label = 'Used Solar Energy', color = 'blue')
+  
+plt.xticks(X_axis, X)
+plt.xlabel("Days")
+plt.ylabel("Energy [kWh]")
+plt.title("Solar curtailment during summer")
+plt.legend()
+plt.show()
+
+X1 = ['Jan 1st','Jan 2nd','Jan 3rd','Jan 4th', 'Jan 5th', 'Jan 6th', 'Jan 7th']
+X1_axis = np.arange(len(X1))
+
+plt.bar(X1_axis - 0.2, Solar_energy_winter, 0.4, label = 'Total Solar Energy', color = 'orange')
+plt.bar(X1_axis + 0.2, Used_solar_energy_winter, 0.4, label = 'Used Solar Energy', color = 'blue')
+  
+plt.xticks(X1_axis, X1)
+plt.xlabel("Days")
+plt.ylabel("Energy [kWh]")
+plt.title("Solar curtailment during winter")
+plt.legend()
+plt.show()
+
+plt.bar(X_axis, get_curtail_percentage_summer, 0.75, label = 'Curtail Energy', color = 'orange')
+  
+plt.xticks(X_axis, X)
+plt.xlabel("Days")
+plt.ylabel("Percentage of curtailment per day")
+plt.title("Solar Energy Curtailment")
+plt.show()
+
