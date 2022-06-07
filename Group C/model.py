@@ -222,6 +222,209 @@ def optimizationModel(inputData, modelType):
     
     return model
 
+def optimizationModel2(inputData, modelType):   
+    
+    # Unpack the data from the dictionary
+    LoadData = inputData['LoadData']
+    TransformerData = inputData['TransformerData']
+    PVProduction = inputData['PVProduction']
+    StorageData = inputData['StorageData']
+    EVDemand = inputData['EVDemand']
+#------------------------------------------------------------------------------
+    # Define the Model
+    model = ConcreteModel()
+
+#------------------------------------------------------------------------------
+    #Define Sets
+    model.T = Set(ordered=True, initialize=LoadData.index)  # Set for time
+    model.B = Set(ordered=True, initialize=StorageData.index)  # Set for battery
+    model.G = Set(ordered=True, initialize=TransformerData.index) # Set for (grid) transformer
+
+#------------------------------------------------------------------------------
+    #Define Parameters
+        # Battery Energy Storage System
+    model.BESS_Pmax = Param(model.B, within=NonNegativeReals, mutable=True)
+    model.BESS_SOEmax = Param(model.B, within=NonNegativeReals, mutable=True)
+    model.BESS_SOEini = Param(model.B, within=NonNegativeReals, mutable=True)
+    model.BESS_Eff = Param(model.B, within=NonNegativeReals, mutable=True)
+        # Load
+    model.Consumption = Param(model.T, within=NonNegativeReals, mutable=True)  # Consumption of load j
+        # PV Generation
+    model.PV = Param(model.T, within=NonNegativeReals, mutable=True)  # Production of PV system k
+        # Transformer
+    model.Pmax = Param(model.G, within=NonNegativeReals, mutable=True)
+        # EV
+    model.EV = Param(model.T, within=NonNegativeReals, mutable=True)
+
+#------------------------------------------------------------------------------
+    # Initialize Parameters
+        # BESS Parameters
+    for b in model.B:
+        model.BESS_Pmax[b] = StorageData.loc[b,'Pmax']
+        model.BESS_SOEmax[b] = StorageData.loc[b,'SOEmax']
+        model.BESS_SOEini[b] = StorageData.loc[b,'SOEini']
+        model.BESS_Eff[b] = StorageData.loc[b,'Eff']
+
+        # PV generation Parameter
+    for t in model.T:
+        model.PV[t] = PVProduction.loc[t,'PVProduction']
+
+        # Transformer Parameter
+    for g in model.G:
+        model.Pmax[g] = TransformerData.loc[g,'Pmax']
+        
+       # The timestep of the model 
+    timestep = 0.25
+    
+        # Load Parameter
+    for t in model.T:
+        model.Consumption[t] = LoadData.loc[t,'LoadData']
+
+        # EV Parameter
+    for t in model.T:
+        model.EV[t] = EVDemand.loc[t, 'EVDemand']
+
+#------------------------------------------------------------------------------
+    # Define the Decision Variables
+        # BESS
+    model.SOE = Var(model.B, model.T, within=NonNegativeReals)  # SOE
+    model.Pch = Var(model.B, model.T, within=NonNegativeReals)  # P charge
+    model.Pdis = Var(model.B, model.T, within=NonNegativeReals) # P discharge
+    model.u_bess = Var(model.B, model.T, within=Binary)         # 1 is charging
+    model.u_idle = Var(model.B, model.T, within=Binary)         # 1 is idleing
+        # Transformer
+    model.Pgrid_plus = Var(model.T, within=NonNegativeReals)    # pushing from
+    model.Pgrid_minus = Var(model.T, within=NonNegativeReals)   # pulling to
+    model.u_grid = Var(model.T, within=Binary)                  # 1 is pulling
+    
+    # Added in order to have curtailment
+    model.curtail_pv = Var(model.T, within=NonNegativeReals)    # Curtail % of PV
+    model.PVprod = Var(model.T, within=NonNegativeReals)        # PV Production
+    
+        # Added for EV curtailment/different wattages
+    model.curtail_ev = Var(model.T, within=NonNegativeReals)    # Curtail % of EV
+    model.EVDelayed = Var(model.T, within=NonNegativeReals)
+    model.EVTotal = Var(model.T, within=NonNegativeReals)
+    model.EVSup = Var(model.T, within=NonNegativeReals)
+    model.SOPSup = Var(model.T, within=NonNegativeReals)
+    model.SOPDemand = Var(model.T, within=NonNegativeReals)
+
+#------------------------------------------------------------------------------
+    # Define Constraints
+        # TODO: Add comments to this part explaining each constraint
+   
+    # def CurtailEV(model, t):
+    #     if model.T.ord(t) == len(model.T):
+    #         return model.curtail_ev[t] == 1
+    #     else:
+    #         return model.curtail_ev[t] <= 1
+
+    # def TotalEVDemand(model, t):
+    #     if model.T.ord(t) == 1:
+    #         return model.EVTotal[t] == model.EV[t]
+    #     if model.T.ord(t) > 1:
+    #         return model.EVTotal[t] == model.EV[t] + model.EVDelayed[model.T.prev(t)]
+        
+    # def SupplyEVNow(model, t):
+    #     return model.EVSup[t] == model.EVTotal[t] * model.curtail_ev[t]
+     
+    # def DelayEV(model, t):
+    #     return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
+    
+    # def TotalSupply(model, t):       # Niet in mathematical model
+    #     if model.T.ord(t) == 1:
+    #         return model.SOPSup[t] == model.EVSup[t]
+    #     if model.T.ord(t) > 1:
+    #         return model.SOPSup[t] == model.SOPSup[model.T.prev(t)] + model.EVSup[t]
+        
+    # def TotalDemand(model, t):      # Niet in mathematical model
+    #     if model.T.ord(t) == 1:
+    #         return model.SOPDemand[t] == model.EV[t]
+    #     if model.T.ord(t) > 1:
+    #         return model.SOPDemand[t] == model.SOPDemand[model.T.prev(t)] + model.EV[t]
+    
+    # def ForceCharge(model, t):
+    #     if model.T.ord(t) > 8:
+    #         return model.SOPDemand[t-8] <= model.SOPSup[t]
+    #     else:
+    #         return Constraint.Skip      
+        
+    def ObjectiveFcn(model):
+        return timestep*sum(model.Pgrid_plus[t] + model.Pgrid_minus[t] for t in model.T)    
+        
+    # Added in order to have curtailment
+    def CurtailPV(model, t):
+        return model.curtail_pv[t] <= 1 
+    
+    # Curtail > 0 not needed since its NonNegativeReal
+    
+    def PVcurtail(model, t):
+        return model.PVprod[t] == model.PV[t] * model.curtail_pv[t]
+    
+    def PGrid(model, b, t):
+        return model.Pgrid_plus[t] - model.Pgrid_minus[t] == model.Consumption[t] + model.Pch[b,t] \
+                   + model.EV[t] - model.PVprod[t] - model.Pdis[b, t]
+                   
+    def GridPull(model, g, t):
+        return model.Pgrid_minus[t] <= model.Pmax[g] * model.u_grid[t]
+  
+    def GridPush(model, g, t):
+        return model.Pgrid_plus[t] <= model.Pmax[g] * (1-model.u_grid[t])
+
+
+    def SOE(model, b, t):
+        if model.T.ord(t) == 1:
+            return model.SOE[b,t] == model.BESS_SOEini[b] + timestep * (model.Pch[b,t] \
+                                    * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b])
+        if model.T.ord(t) > 1:
+            return model.SOE[b,t] == model.SOE[b, model.T.prev(t)] + timestep * (model.Pch[b,t] \
+                                    * model.BESS_Eff[b] - model.Pdis[b,t]/model.BESS_Eff[b])
+
+    def BESS_SOE_max(model, b, t):
+        return model.SOE[b,t] <= model.BESS_SOEmax[b]
+    
+    # BESS_SOE_min is not needed, since model.SOE specifies NonNegativeReals
+    
+    def BESS_Charging(model, b, t):
+        return model.Pch[b,t] <=  model.BESS_Pmax[b] * model.u_bess[b, t]
+                                                        
+    def BESS_Discharging(model, b, t): 
+       return model.Pdis[b, t] <= model.BESS_Pmax[b] * (1-model.u_bess[b, t])
+
+    def BESS_idle(model, b, t):
+        return model.u_bess[b,t] + model.u_idle[b,t] <= 1
+    
+    
+#------------------------------------------------------------------------------
+    # Add Constraints to the model
+        # TODO: Add comments to this
+    
+    model.Obj = Objective(rule=ObjectiveFcn)
+    model.ConPGrid = Constraint(model.B, model.T, rule=PGrid)
+    model.ConGridPull = Constraint(model.G, model.T, rule=GridPull)
+    model.ConGridPush = Constraint(model.G, model.T, rule=GridPush)
+    model.ConSOE = Constraint(model.B, model.T, rule=SOE)
+    model.ConSOEmax = Constraint(model.B, model.T, rule=BESS_SOE_max)
+    model.ConBESSCharging = Constraint(model.B, model.T, rule=BESS_Charging)
+    model.ConBESSDischarging = Constraint(model.B, model.T, rule=BESS_Discharging)
+    model.ConBESSidle = Constraint(model.B, model.T, rule=BESS_idle)
+    
+    # Added in order to have curtailment
+    model.ConCurtailPV = Constraint(model.T, rule=CurtailPV)
+    model.ConPVcurtail = Constraint(model.T, rule=PVcurtail)
+    
+    # Added in order to have curtailment of EV
+    # model.ConCurtailEV = Constraint(model.T, rule=CurtailEV)
+    # model.ConTotalEVDemand = Constraint(model.T, rule=TotalEVDemand)
+    # model.ConSupplyEVNow = Constraint(model.T, rule=SupplyEVNow)
+    # model.ConDelayEV = Constraint(model.T, rule=DelayEV)
+    # model.ConForceCharge = Constraint(model.T, rule=ForceCharge)
+    # model.ConTotalSupply = Constraint(model.T, rule=TotalSupply)
+    # model.ConTotalDemand = Constraint(model.T, rule=TotalDemand)
+    
+    return model
+
+
 #------------------------------------------------------------------------------
     # Retrieve data from winter and summer Excel sheets and create model
 
@@ -230,6 +433,18 @@ model_winter = optimizationModel(data_winter, 'winter') # Simulates the first we
 
 data_summer = readInputFile('variables_BAP_summer.xlsx')
 model_summer = optimizationModel(data_summer, 'summer') # Simulates the first week of July
+
+data_winter_no_bat = readInputFile('variables_BAP_winter_no_bat.xlsx')
+model_winter_no_bat = optimizationModel(data_winter_no_bat, 'winter') # Simulates the first week of January
+
+data_summer_no_bat = readInputFile('variables_BAP_summer_no_bat.xlsx')
+model_summer_no_bat = optimizationModel(data_summer_no_bat, 'summer') # Simulates the first week of July
+
+data_no_ev_summer = readInputFile('variables_BAP_summer.xlsx')
+model_summer_no_ev = optimizationModel2(data_no_ev_summer, 'summer') # Simulates the first week of July with no ev
+
+data_no_ev_winter = readInputFile('variables_BAP_winter.xlsx')
+model_winter_no_ev = optimizationModel2(data_no_ev_winter, 'winter') # Simulates the first week of January with no ev
 
 #------------------------------------------------------------------------------
     # Initialises the solver and its settings and solves the model
@@ -240,6 +455,10 @@ opt.options['NonConvex'] = 2 # <= Solves the gurobi crash
 
 results_winter=opt.solve(model_winter)
 results_summer=opt.solve(model_summer)
+results_winter_no_bat=opt.solve(model_winter_no_bat)
+results_summer_no_bat=opt.solve(model_summer_no_bat)
+results_winter_no_ev=opt.solve(model_winter_no_ev)
+results_summer_no_ev=opt.solve(model_summer_no_ev)
 
 #------------------------------------------------------------------------------
     # Extract data from both winter and summer models into arrays
@@ -311,26 +530,58 @@ for t in model_summer.T:
     # Winter
 Pgrid_plot_w = []
 for t in model_winter.T:
-    Pgrid_plot_w.append(-0.25*model_winter.Pgrid_minus[t]()+0.25*model_winter.Pgrid_plus[t]())
+    Pgrid_plot_w.append(model_winter.Pgrid_minus[t]()+model_winter.Pgrid_plus[t]())
+Pgrid_plot_w_no_bat = []
+for t in model_winter.T:
+    Pgrid_plot_w_no_bat.append(model_winter_no_bat.Pgrid_minus[t]()+model_winter_no_bat.Pgrid_plus[t]())
+Pgrid_plot_w_no_ev = []
+for t in model_winter.T:
+    Pgrid_plot_w_no_ev.append(model_winter_no_ev.Pgrid_minus[t]()+model_winter_no_ev.Pgrid_plus[t]())
     # Summer
 Pgrid_plot_s = []
 for t in model_summer.T:
-    Pgrid_plot_s.append(-0.25*model_summer.Pgrid_minus[t]()+0.25*model_summer.Pgrid_plus[t]())
+    Pgrid_plot_s.append(model_summer.Pgrid_minus[t]()+model_summer.Pgrid_plus[t]())
+Pgrid_plot_s_no_bat = []
+for t in model_winter.T:
+    Pgrid_plot_s_no_bat.append(model_summer_no_bat.Pgrid_minus[t]()+model_summer_no_bat.Pgrid_plus[t]())
+Pgrid_plot_s_no_ev = []
+for t in model_winter.T:
+    Pgrid_plot_s_no_ev.append(model_summer_no_ev.Pgrid_minus[t]()+model_summer_no_ev.Pgrid_plus[t]())     
      
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
-# make a plot
-ax.step(x, Pgrid_plot_w, color="blue")
-# set x-axis label
+ax.step(x, Pgrid_plot_w, color="blue", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with full model')
+ax.step(x, Pgrid_plot_w_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no BESS')
+ax.step(x, Pgrid_plot_w_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
 ax.set_xlabel("Time [h]")
-# set y-axis label
-ax.set_ylabel("Pgrid [kW]", color='blue')
-# twin object for two different y-axis on the sample plot
-ax2=ax.twinx()
-# make a plot with different y-axis using second axis object
-ax2.step(x, Pgrid_plot_s, color="red")
-ax2.set_ylabel("Pgrid [kW]",color="red")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of January", fontsize = 16)
+plt.savefig('transformer_winter.png', dpi=600, bbox_inches='tight')
 plt.show()
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, Pgrid_plot_s, color="blue", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with full model')
+ax.step(x, Pgrid_plot_s_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no BESS')
+ax.step(x, Pgrid_plot_s_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+figure = plt.gcf()
+figure.set_size_inches(35, 3)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of July", fontsize = 16)
+plt.savefig('transformer_summer.png', dpi=600, bbox_inches='tight')
+plt.show()
+
 
 #------------------------------------------------------------------------------
     # Printing the objective function to get total energy usage of the week
@@ -386,7 +637,7 @@ plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
 plt.title("EV power delayed in 1st week of July", fontsize = 16)
-plt.savefig('EV_delay_summer', dpi=1000, bbox_inches='tight')
+plt.savefig('EV_delay_summer', dpi=600, bbox_inches='tight')
 plt.show()
 
 EV_demand_plot_winter = []
@@ -409,7 +660,7 @@ plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
 plt.title("EV power delayed in 1st week of January", fontsize = 16)
-plt.savefig('EV_delay_winter', dpi=1000, bbox_inches='tight')
+plt.savefig('EV_delay_winter', dpi=600, bbox_inches='tight')
 plt.show()
 
 #------------------------------------------------------------------------------
@@ -465,7 +716,7 @@ plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.title("Load, Solar production and BESS SOE in 1st week of January", fontsize = 16)
 plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
-plt.savefig('winter_system.png', dpi=1000, bbox_inches='tight')
+plt.savefig('winter_system.png', dpi=600, bbox_inches='tight')
 plt.show()      
 
 # create figure and axis objects with subplots()
@@ -486,7 +737,7 @@ plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.title("Load, Solar production and BESS SOE in 1st week of July", fontsize = 16)
 plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
-plt.savefig('summer_system.png', dpi=1000, bbox_inches='tight')
+plt.savefig('summer_system.png', dpi=600, bbox_inches='tight')
 plt.show()  
 
 # # Show the major grid lines with dark grey lines
@@ -581,7 +832,7 @@ plt.xlabel("Days")
 plt.ylabel("Energy [kWh]")
 plt.title("Solar curtailment during summer")
 plt.legend()
-plt.savefig('Solar_curtailment_summer.png', dpi=1000, bbox_inches='tight')
+plt.savefig('Solar_curtailment_summer.png', dpi=600, bbox_inches='tight')
 plt.show()
 
 X1 = ['Jan 1st','Jan 2nd','Jan 3rd','Jan 4th', 'Jan 5th', 'Jan 6th', 'Jan 7th']
@@ -595,7 +846,7 @@ plt.xlabel("Days")
 plt.ylabel("Energy [kWh]")
 plt.title("Solar curtailment during winter")
 plt.legend()
-plt.savefig('Solar_curtailment_winter.png', dpi=1000, bbox_inches='tight')
+plt.savefig('Solar_curtailment_winter.png', dpi=600, bbox_inches='tight')
 plt.show()
 
     # Solar Curtailment bar chart (Curtailment per day)
