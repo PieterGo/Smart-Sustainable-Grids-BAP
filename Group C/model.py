@@ -465,7 +465,7 @@ results_summer_no_ev=opt.solve(model_summer_no_ev)
        
 # Retrieve simulation length from length of SOE array
 x = []
-for i in range(672):
+for i in range(480):
     x.append(i * 0.25)
 
 # Get Load plot data
@@ -558,28 +558,28 @@ ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of January", fontsize = 16)
+plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of January", fontsize = 20)
 plt.savefig('transformer_winter.png', dpi=600, bbox_inches='tight')
 plt.show()
 
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
 ax.step(x, Pgrid_plot_s, color="blue", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with full model')
-ax.step(x, Pgrid_plot_s_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no BESS')
-ax.step(x, Pgrid_plot_s_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
+ax.step(x, Pgrid_plot_s_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no model')
+#ax.step(x, Pgrid_plot_s_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
 ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
-plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0, fontsize = 20)
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(21, 3)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of July", fontsize = 16)
-plt.savefig('transformer_summer.png', dpi=600, bbox_inches='tight')
+plt.title("Transformer power of full model and no model in 1st week of July", fontsize = 20)
+plt.savefig('poster_image.png', dpi=1200, bbox_inches='tight')
 plt.show()
 
 
@@ -632,11 +632,11 @@ ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
-plt.title("EV power delayed in 1st week of July", fontsize = 16)
+plt.title("EV power delayed in 1st week of July", fontsize = 20)
 plt.savefig('EV_delay_summer', dpi=600, bbox_inches='tight')
 plt.show()
 
@@ -655,11 +655,11 @@ ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
 plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
-plt.title("EV power delayed in 1st week of January", fontsize = 16)
+plt.title("EV power delayed in 1st week of January", fontsize = 20)
 plt.savefig('EV_delay_winter', dpi=600, bbox_inches='tight')
 plt.show()
 
@@ -711,10 +711,10 @@ plt.minorticks_on()
 ax2.step(x, SOE_plot_winter, color="green", linewidth = 1.5, label = 'BESS State of Energy')
 ax2.set_ylabel("E [kWh]", color='green')
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Load, Solar production and BESS SOE in 1st week of January", fontsize = 16)
+plt.title("Load, Solar production and BESS SOE in 1st week of January", fontsize = 20)
 plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
 plt.savefig('winter_system.png', dpi=600, bbox_inches='tight')
 plt.show()      
@@ -732,10 +732,10 @@ plt.minorticks_on()
 ax2.step(x, SOE_plot_summer, color="green", linewidth = 1.5, label = 'BESS State of Energy')
 ax2.set_ylabel("E [kWh]", color='green')
 figure = plt.gcf()
-figure.set_size_inches(35, 3)
+figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Load, Solar production and BESS SOE in 1st week of July", fontsize = 16)
+plt.title("Load, Solar production and BESS SOE in 1st week of July", fontsize = 20)
 plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
 plt.savefig('summer_system.png', dpi=600, bbox_inches='tight')
 plt.show()  
@@ -756,19 +756,19 @@ for i in range(len(solar_plot_s)):
     if solar_plot_s[i] == 0: 
         get_curtail_summer[i] = 0
     
-get_curtail_summer_per_day = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+get_curtail_summer_per_day = [0, 0, 0, 0, 0]
+for j in range(5):
     for i in range(96):
         get_curtail_summer_per_day[j] += get_curtail_summer[j*96+i]
         
-minutes_day_solar_summer = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+minutes_day_solar_summer = [0, 0, 0, 0, 0]
+for j in range(5):
     for i in range(96):
         if solar_plot_s[j*96+i] != 0:
             minutes_day_solar_summer[j] += 15
 
-get_curtail_percentage_summer = [0, 0, 0, 0, 0, 0, 0]
-for i in range(7):
+get_curtail_percentage_summer = [0, 0, 0, 0, 0]
+for i in range(5):
     get_curtail_percentage_summer[i] = get_curtail_summer_per_day[i]/minutes_day_solar_summer[i] # Divide by minutes that day of solar energy
 #------------------------------------------------------------------------------
     # Get Total Curtail Percentage Per Day In Winter
@@ -780,47 +780,47 @@ for i in range(len(solar_plot_s)):
     if solar_plot_w[i] == 0: 
         get_curtail_winter[i] = 0
     
-get_curtail_winter_per_day = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+get_curtail_winter_per_day = [0, 0, 0, 0, 0]
+for j in range(5):
     for i in range(96):
         get_curtail_winter_per_day[j] += get_curtail_winter[j*96+i]
         
-minutes_day_solar_winter = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+minutes_day_solar_winter = [0, 0, 0, 0, 0]
+for j in range(5):
     for i in range(96):
         if solar_plot_w[j*96+i] != 0:
             minutes_day_solar_winter[j] += 15
 
-get_curtail_percentage_winter = [0, 0, 0, 0, 0, 0, 0]
-for i in range(7):
+get_curtail_percentage_winter = [0, 0, 0, 0, 0]
+for i in range(5):
     get_curtail_percentage_winter[i] = get_curtail_winter_per_day[i]/minutes_day_solar_winter[i] # Divide by minutes that day of solar energy
 #------------------------------------------------------------------------------
     # Plot the bar chart of solar curtailment
-Solar_energy_summer = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+Solar_energy_summer = [0, 0, 0, 0, 0]
+for j in range(5):
      for i in range(96):
          Solar_energy_summer[j] += solar_plot_s[j*96+i]*0.25
     
-Used_solar_energy_summer = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+Used_solar_energy_summer = [0, 0, 0, 0, 0]
+for j in range(5):
      for i in range(96):
          Used_solar_energy_summer[j] += solarprod_plot_summer[j*96+i]*0.25
          
-Solar_energy_winter = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+Solar_energy_winter = [0, 0, 0, 0, 0]
+for j in range(5):
      for i in range(96):
          Solar_energy_winter[j] += solar_plot_w[j*96+i]*0.25         
 
-Used_solar_energy_winter = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+Used_solar_energy_winter = [0, 0, 0, 0, 0]
+for j in range(5):
      for i in range(96):
          Used_solar_energy_winter[j] += solarprod_plot_winter[j*96+i]*0.25         
          
-Used_solar_energy_summer_curtail = [0, 0, 0, 0, 0, 0, 0]
-for j in range(7):
+Used_solar_energy_summer_curtail = [0, 0, 0, 0, 0]
+for j in range(5):
     Used_solar_energy_summer_curtail[j] = Solar_energy_summer[j]*get_curtail_percentage_summer[j]
     
-X = ['July 1st','July 2nd','July 3rd','July 4th', 'July 5th', 'July 6th', 'July 7th']
+X = ['July 1st','July 2nd','July 3rd','July 4th', 'July 5th']
   
 X_axis = np.arange(len(X))
   
@@ -835,7 +835,7 @@ plt.legend()
 plt.savefig('Solar_curtailment_summer.png', dpi=600, bbox_inches='tight')
 plt.show()
 
-X1 = ['Jan 1st','Jan 2nd','Jan 3rd','Jan 4th', 'Jan 5th', 'Jan 6th', 'Jan 7th']
+X1 = ['Jan 1st','Jan 2nd','Jan 3rd','Jan 4th', 'Jan 5th']
 X1_axis = np.arange(len(X1))
 
 plt.bar(X1_axis - 0.2, Solar_energy_winter, 0.4, label = 'Total Solar Energy', color = 'orange')
