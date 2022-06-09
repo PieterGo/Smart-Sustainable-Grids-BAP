@@ -142,8 +142,8 @@ def optimizationModel(inputData, modelType):
             return model.SOPDemand[t] == model.SOPDemand[model.T.prev(t)] + model.EV[t]
     
     def ForceCharge(model, t):
-        if model.T.ord(t) > 8:
-            return model.SOPDemand[t-8] <= model.SOPSup[t]
+        if model.T.ord(t) > 0:
+            return model.SOPDemand[t-0] <= model.SOPSup[t]
         else:
             return Constraint.Skip      
         
