@@ -109,7 +109,6 @@ def optimizationModel(inputData, modelType):
 
 #------------------------------------------------------------------------------
     # Define Constraints
-        # TODO: Add comments to this part explaining each constraint
    
     def CurtailEV(model, t):
         if model.T.ord(t) == len(model.T):
@@ -129,21 +128,21 @@ def optimizationModel(inputData, modelType):
     def DelayEV(model, t):
         return model.EVDelayed[t] == model.EVTotal[t] - model.EVSup[t]
     
-    def TotalSupply(model, t):       # Niet in mathematical model
+    def TotalSupply(model, t):
         if model.T.ord(t) == 1:
             return model.SOPSup[t] == model.EVSup[t]
         if model.T.ord(t) > 1:
             return model.SOPSup[t] == model.SOPSup[model.T.prev(t)] + model.EVSup[t]
         
-    def TotalDemand(model, t):      # Niet in mathematical model
+    def TotalDemand(model, t):
         if model.T.ord(t) == 1:
             return model.SOPDemand[t] == model.EV[t]
         if model.T.ord(t) > 1:
             return model.SOPDemand[t] == model.SOPDemand[model.T.prev(t)] + model.EV[t]
     
     def ForceCharge(model, t):
-        if model.T.ord(t) > 0:
-            return model.SOPDemand[t-0] <= model.SOPSup[t]
+        if model.T.ord(t) > 8:
+            return model.SOPDemand[t-8] <= model.SOPSup[t]
         else:
             return Constraint.Skip      
         
@@ -195,7 +194,6 @@ def optimizationModel(inputData, modelType):
     
 #------------------------------------------------------------------------------
     # Add Constraints to the model
-        # TODO: Add comments to this
     
     model.Obj = Objective(rule=ObjectiveFcn)
     model.ConPGrid = Constraint(model.B, model.T, rule=PGrid)
@@ -446,6 +444,16 @@ model_summer_no_ev = optimizationModel2(data_no_ev_summer, 'summer') # Simulates
 data_no_ev_winter = readInputFile('variables_BAP_winter.xlsx')
 model_winter_no_ev = optimizationModel2(data_no_ev_winter, 'winter') # Simulates the first week of January with no ev
 
+# Add spring:
+data_spring = readInputFile('variables_BAP_spring.xlsx')
+model_spring = optimizationModel(data_spring, 'spring') # Simulates the first week of July
+
+data_spring_no_bat = readInputFile('variables_BAP_spring_no_bat.xlsx')
+model_spring_no_bat = optimizationModel(data_spring_no_bat, 'spring') # Simulates the first week of July
+
+data_no_ev_spring = readInputFile('variables_BAP_spring.xlsx')
+model_spring_no_ev = optimizationModel2(data_no_ev_spring, 'spring') # Simulates the first week of July with no ev
+
 #------------------------------------------------------------------------------
     # Initialises the solver and its settings and solves the model
 
@@ -459,6 +467,10 @@ results_winter_no_bat=opt.solve(model_winter_no_bat)
 results_summer_no_bat=opt.solve(model_summer_no_bat)
 results_winter_no_ev=opt.solve(model_winter_no_ev)
 results_summer_no_ev=opt.solve(model_summer_no_ev)
+
+results_spring=opt.solve(model_spring)
+results_spring_no_bat=opt.solve(model_spring_no_bat)
+results_spring_no_ev=opt.solve(model_spring_no_ev)
 
 #------------------------------------------------------------------------------
     # Extract data from both winter and summer models into arrays
@@ -477,6 +489,10 @@ for t in model_winter.T:
 load_plot_s = []
 for t in model_summer.T:
     load_plot_s.append(model_summer.Consumption[t]() + model_summer.EV[t]())
+    # Spring
+load_plot_sp = []
+for t in model_spring.T:
+    load_plot_sp.append(model_spring.Consumption[t]() + model_spring.EV[t]())
 
 # Get Solar plot data
     # Winter
@@ -487,6 +503,10 @@ for t in model_winter.T:
 solar_plot_s = []
 for t in model_summer.T:
     solar_plot_s.append(model_summer.PV[t]())
+    # Spring
+solar_plot_sp = []
+for t in model_spring.T:
+    solar_plot_sp.append(model_spring.PV[t]())
 
 #------------------------------------------------------------------------------
 #     # Create the plots 
@@ -546,7 +566,18 @@ for t in model_winter.T:
     Pgrid_plot_s_no_bat.append(model_summer_no_bat.Pgrid_minus[t]()+model_summer_no_bat.Pgrid_plus[t]())
 Pgrid_plot_s_no_ev = []
 for t in model_winter.T:
-    Pgrid_plot_s_no_ev.append(model_summer_no_ev.Pgrid_minus[t]()+model_summer_no_ev.Pgrid_plus[t]())     
+    Pgrid_plot_s_no_ev.append(model_summer_no_ev.Pgrid_minus[t]()+model_summer_no_ev.Pgrid_plus[t]())  
+    
+    #Spring
+Pgrid_plot_sp = []
+for t in model_spring.T:
+    Pgrid_plot_sp.append(model_spring.Pgrid_minus[t]()+model_spring.Pgrid_plus[t]())
+Pgrid_plot_sp_no_bat = []
+for t in model_spring.T:
+    Pgrid_plot_sp_no_bat.append(model_spring_no_bat.Pgrid_minus[t]()+model_spring_no_bat.Pgrid_plus[t]())
+Pgrid_plot_sp_no_ev = []
+for t in model_spring.T:
+    Pgrid_plot_sp_no_ev.append(model_spring_no_ev.Pgrid_minus[t]()+model_spring_no_ev.Pgrid_plus[t]())
      
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
@@ -556,30 +587,50 @@ ax.step(x, Pgrid_plot_w_no_ev, color="green", linewidth = 1.5, alpha=0.8, label 
 ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
-plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.legend(bbox_to_anchor=(0.4, -0.25, 0.6, -0.45), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)  
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
 figure = plt.gcf()
-figure.set_size_inches(28, 4)
+figure.set_size_inches(24, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Transformer power of full model, no BESS model and no EV delay model in 1st week of January", fontsize = 20)
-plt.savefig('transformer_winter.png', dpi=600, bbox_inches='tight')
+plt.title("Transformer power of full model, no BESS model and no EV delay model in first 5 days of January", fontsize = 24)
+plt.savefig('transformer_winter.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
 ax.step(x, Pgrid_plot_s, color="blue", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with full model')
 ax.step(x, Pgrid_plot_s_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no model')
-#ax.step(x, Pgrid_plot_s_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
+ax.step(x, Pgrid_plot_s_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
 ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 #plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0, fontsize = 20)
+plt.legend(bbox_to_anchor=(0.4, -0.25, 0.6, -0.45), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)  
 figure = plt.gcf()
-figure.set_size_inches(21, 3)
+figure.set_size_inches(24, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Transformer power of full model and no model in 1st week of July", fontsize = 20)
-plt.savefig('poster_image.png', dpi=1200, bbox_inches='tight')
+plt.title("Transformer power of full model, no BESS model and no EV delay model in first 5 days of July", fontsize = 24)
+plt.savefig('transformer_summer.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, Pgrid_plot_sp, color="blue", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with full model')
+ax.step(x, Pgrid_plot_sp_no_bat, color="red", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no model')
+ax.step(x, Pgrid_plot_sp_no_ev, color="green", linewidth = 1.5, alpha=0.8, label = 'Transformer Power with no EV delaying')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.legend(bbox_to_anchor=(0.4, -0.25, 0.6, -0.45), loc='lower left', ncol=3, mode="expand", borderaxespad=0.)  
+figure = plt.gcf()
+figure.set_size_inches(24, 4)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Transformer power of full model, no BESS model and no EV delay model in first 5 days of April", fontsize = 24)
+plt.savefig('transformer_spring.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 
@@ -593,6 +644,10 @@ print("Summer:")
 print(model_summer.Obj())
 print('Summer no battery no PV:')
 print(0.25*sum(load_plot_s))
+print("Spring:")
+print(model_spring.Obj())
+print('Spring no battery no PV:')
+print(0.25*sum(load_plot_sp))
 
 #-------------------
 EV_total_w = []
@@ -632,12 +687,13 @@ ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 figure = plt.gcf()
-figure.set_size_inches(28, 4)
+figure.set_size_inches(24, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
-plt.title("EV power delayed in 1st week of July", fontsize = 20)
-plt.savefig('EV_delay_summer', dpi=600, bbox_inches='tight')
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+#plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
+plt.title("EV power delayed in first 5 days of July", fontsize = 24)
+plt.savefig('EV_delay_summer', dpi=300, bbox_inches='tight')
 plt.show()
 
 EV_demand_plot_winter = []
@@ -655,12 +711,37 @@ ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
 figure = plt.gcf()
-figure.set_size_inches(28, 4)
+figure.set_size_inches(24, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
-plt.title("EV power delayed in 1st week of January", fontsize = 20)
-plt.savefig('EV_delay_winter', dpi=600, bbox_inches='tight')
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+#plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
+plt.title("EV power delayed in first 5 days of January", fontsize = 24)
+plt.savefig('EV_delay_winter', dpi=300, bbox_inches='tight')
+plt.show()
+
+EV_demand_plot_spring = []
+for t in model_spring.T:
+    EV_demand_plot_spring.append(model_spring.EV[t]())
+EV_supply_plot_spring = []
+for t in model_spring.T:
+        EV_supply_plot_spring.append(model_spring.EVSup[t]())
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, EV_demand_plot_spring, color="blue", linewidth = 1.5, alpha=0.8, label = 'EV Power Demand')
+ax.step(x, EV_supply_plot_spring, color="red", linewidth = 1.5, alpha=0.8, label = 'EV Delayed Supply')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+figure = plt.gcf()
+figure.set_size_inches(24, 4)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)
+#plt.legend(bbox_to_anchor=(1.01, 0.1), loc='upper left', borderaxespad=0)
+plt.title("EV power delayed in first 5 days of April", fontsize = 24)
+plt.savefig('EV_delay_spring', dpi=300, bbox_inches='tight')
 plt.show()
 
 #------------------------------------------------------------------------------
@@ -675,7 +756,11 @@ for t in model_winter.T:
 Total_load_summer = []
 for t in model_summer.T:
     Total_load_summer.append(model_summer.EVSup[t]()+model_summer.Consumption[t]())
-
+    # Summer
+Total_load_spring = []
+for t in model_spring.T:
+    Total_load_spring.append(model_spring.EVSup[t]()+model_spring.Consumption[t]())
+    
 # Get State of Energy plot data
     # Winter
 SOE_plot_winter = []
@@ -687,6 +772,11 @@ SOE_plot_summer = []
 for b in model_summer.B:
      for t in model_summer.T:
          SOE_plot_summer.append(model_summer.SOE[b, t]()) 
+    # Spring
+SOE_plot_spring = []
+for b in model_spring.B:
+     for t in model_spring.T:
+         SOE_plot_spring.append(model_spring.SOE[b, t]())
          
 # Get Curtailed Solar plot data
     # Winter
@@ -697,7 +787,11 @@ for t in model_winter.T:
 solarprod_plot_summer = []
 for t in model_summer.T:
     solarprod_plot_summer.append(model_summer.PVprod[t]())
-    
+    # Spring
+solarprod_plot_spring = []
+for t in model_spring.T:
+    solarprod_plot_spring.append(model_spring.PVprod[t]())
+
 # create figure and axis objects with subplots()
 fig,ax = plt.subplots()
 ax.step(x, Total_load_winter, color="blue", linewidth = 1.5, alpha=0.8, label = 'Total Load')
@@ -705,18 +799,20 @@ ax.step(x, solarprod_plot_winter, color="red", linewidth = 1.5, alpha=0.8, label
 ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
-plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+#plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
 ax2=ax.twinx()
 plt.minorticks_on()
 ax2.step(x, SOE_plot_winter, color="green", linewidth = 1.5, label = 'BESS State of Energy')
 ax2.set_ylabel("E [kWh]", color='green')
 figure = plt.gcf()
-figure.set_size_inches(28, 4)
+figure.set_size_inches(24, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Load, Solar production and BESS SOE in 1st week of January", fontsize = 20)
-plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
-plt.savefig('winter_system.png', dpi=600, bbox_inches='tight')
+plt.title("Load, Solar production and BESS SOE in first 5 days of January", fontsize = 24)
+plt.legend(bbox_to_anchor=(0.6, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.savefig('winter_system.png', dpi=300, bbox_inches='tight')
 plt.show()      
 
 # create figure and axis objects with subplots()
@@ -726,7 +822,8 @@ ax.step(x, solarprod_plot_summer, color="red", linewidth = 1.5, alpha=0.8, label
 ax.set_xlabel("Time [h]")
 ax.set_ylabel("P [kW]")
 plt.minorticks_on()
-plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+#plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
 ax2=ax.twinx()
 plt.minorticks_on()
 ax2.step(x, SOE_plot_summer, color="green", linewidth = 1.5, label = 'BESS State of Energy')
@@ -735,9 +832,33 @@ figure = plt.gcf()
 figure.set_size_inches(28, 4)
 plt.xticks(np.arange(0, 170, 5))
 ax.margins(x=0.01)
-plt.title("Load, Solar production and BESS SOE in 1st week of July", fontsize = 20)
-plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
-plt.savefig('summer_system.png', dpi=600, bbox_inches='tight')
+plt.title("Load, Solar production and BESS SOE in first 5 days of July", fontsize = 24)
+plt.legend(bbox_to_anchor=(0.6, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.savefig('summer_system.png', dpi=300, bbox_inches='tight')
+plt.show()  
+
+# create figure and axis objects with subplots()
+fig,ax = plt.subplots()
+ax.step(x, Total_load_spring, color="blue", linewidth = 1.5, alpha=0.8, label = 'Total Load')
+ax.step(x, solarprod_plot_spring, color="red", linewidth = 1.5, alpha=0.8, label = 'Used Solar Energy')
+ax.set_xlabel("Time [h]")
+ax.set_ylabel("P [kW]")
+plt.minorticks_on()
+#plt.legend(bbox_to_anchor=(1.02, 0.3), loc='upper left', borderaxespad=0)
+plt.legend(bbox_to_anchor=(0.8, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+ax2=ax.twinx()
+plt.minorticks_on()
+ax2.step(x, SOE_plot_spring, color="green", linewidth = 1.5, label = 'BESS State of Energy')
+ax2.set_ylabel("E [kWh]", color='green')
+figure = plt.gcf()
+figure.set_size_inches(28, 4)
+plt.xticks(np.arange(0, 170, 5))
+ax.margins(x=0.01)
+plt.title("Load, Solar production and BESS SOE in first 5 days of April", fontsize = 24)
+plt.legend(bbox_to_anchor=(0.6, -0.2, 0.2, -0.4), loc='lower left', ncol=2, mode="expand", borderaxespad=0.)   
+#plt.legend(bbox_to_anchor=(1.02, 0.1), loc='upper left', borderaxespad=0)
+plt.savefig('spring_system.png', dpi=300, bbox_inches='tight')
 plt.show()  
 
 # # Show the major grid lines with dark grey lines
@@ -814,7 +935,17 @@ for j in range(5):
 Used_solar_energy_winter = [0, 0, 0, 0, 0]
 for j in range(5):
      for i in range(96):
-         Used_solar_energy_winter[j] += solarprod_plot_winter[j*96+i]*0.25         
+         Used_solar_energy_winter[j] += solarprod_plot_winter[j*96+i]*0.25
+         
+Solar_energy_spring = [0, 0, 0, 0, 0]
+for j in range(5):
+     for i in range(96):
+         Solar_energy_spring[j] += solar_plot_sp[j*96+i]*0.25         
+
+Used_solar_energy_spring = [0, 0, 0, 0, 0]
+for j in range(5):
+     for i in range(96):
+         Used_solar_energy_spring[j] += solarprod_plot_spring[j*96+i]*0.25   
          
 Used_solar_energy_summer_curtail = [0, 0, 0, 0, 0]
 for j in range(5):
@@ -832,7 +963,7 @@ plt.xlabel("Days")
 plt.ylabel("Energy [kWh]")
 plt.title("Solar curtailment during summer")
 plt.legend()
-plt.savefig('Solar_curtailment_summer.png', dpi=600, bbox_inches='tight')
+plt.savefig('Solar_curtailment_summer.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 X1 = ['Jan 1st','Jan 2nd','Jan 3rd','Jan 4th', 'Jan 5th']
@@ -846,7 +977,21 @@ plt.xlabel("Days")
 plt.ylabel("Energy [kWh]")
 plt.title("Solar curtailment during winter")
 plt.legend()
-plt.savefig('Solar_curtailment_winter.png', dpi=600, bbox_inches='tight')
+plt.savefig('Solar_curtailment_winter.png', dpi=300, bbox_inches='tight')
+plt.show()
+
+X2 = ['Apr 1st','Apr 2nd','Apr 3rd','Apr 4th', 'Apr 5th']
+X2_axis = np.arange(len(X2))
+
+plt.bar(X2_axis - 0.2, Solar_energy_spring, 0.4, label = 'Total Solar Energy', color = 'orange')
+plt.bar(X2_axis + 0.2, Used_solar_energy_spring, 0.4, label = 'Used Solar Energy', color = 'blue')
+  
+plt.xticks(X2_axis, X2)
+plt.xlabel("Days")
+plt.ylabel("Energy [kWh]")
+plt.title("Solar curtailment during spring")
+plt.legend()
+plt.savefig('Solar_curtailment_spring.png', dpi=300, bbox_inches='tight')
 plt.show()
 
     # Solar Curtailment bar chart (Curtailment per day)
